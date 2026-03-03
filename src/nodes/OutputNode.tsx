@@ -11,9 +11,17 @@ export function OutputNode() {
         </div>
         <div className="badge">DEST</div>
       </div>
+
       <div className="nodeBody">
         <div className="hint">Connect audio here.</div>
-        <Handle className="handle-audio" type="target" position={Position.Left} id="audioIn" style={{ top: 28 }} />
+
+        <Handle
+          className="handle-audio"
+          type="target"
+          position={Position.Left}
+          id="audioIn"
+          style={{ top: 28 }}
+        />
       </div>
     </div>
   );
