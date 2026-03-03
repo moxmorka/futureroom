@@ -4,6 +4,7 @@ export function Button(props: React.ButtonHTMLAttributes<HTMLButtonElement>) {
   return (
     <button
       {...props}
+      className={(props.className ? props.className + " " : "") + "nodrag"}
       style={{
         height: 34,
         borderRadius: 10,
@@ -16,6 +17,10 @@ export function Button(props: React.ButtonHTMLAttributes<HTMLButtonElement>) {
         fontWeight: 650,
         letterSpacing: 0.2,
         ...(props.style || {}),
+      }}
+      onPointerDown={(e) => {
+        e.stopPropagation();
+        props.onPointerDown?.(e);
       }}
       onMouseEnter={(e) => (e.currentTarget.style.background = "rgba(255,255,255,0.06)")}
       onMouseLeave={(e) => (e.currentTarget.style.background = "rgba(255,255,255,0.04)")}
