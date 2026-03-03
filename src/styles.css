@@ -1,11 +1,13 @@
 :root{
-  --bg:#0b0b0c;
-  --panel:#111113;
-  --panel2:#151518;
-  --text:#f3f4f6;
-  --muted:#a1a1aa;
-  --line:#2a2a2f;
-  --shadow:rgba(0,0,0,0.4);
+  --bg:#e9e9ed;
+  --panel:#f6f6f8;
+  --panel2:#ededf1;
+  --text:#111114;
+  --muted:#4b4b55;
+  --line:#b9b9c2;
+  --shadow:rgba(0,0,0,0.18);
+  --hi:rgba(255,255,255,0.85);
+  --lo:rgba(0,0,0,0.08);
 }
 
 *{box-sizing:border-box;}
@@ -14,26 +16,26 @@ html,body,#root{
   margin:0;
   background:var(--bg);
   color:var(--text);
-  font-family:ui-sans-serif,system-ui,-apple-system,"SF Pro Text","SF Pro Display",Segoe UI,Roboto,Arial;
+  font-family: ui-sans-serif, system-ui, -apple-system, "SF Pro Text", "Helvetica Neue", Arial;
 }
 
 .rf-shell{height:100%;display:flex;flex-direction:column;}
 .topbar{
-  height:52px;
+  height:56px;
   display:flex;
   align-items:center;
   justify-content:space-between;
   padding:0 14px;
   border-bottom:1px solid var(--line);
-  background:rgba(17,17,19,0.75);
-  backdrop-filter:blur(10px);
+  background:linear-gradient(#f9f9fb,#e7e7ec);
+  box-shadow:0 6px 18px var(--shadow);
 }
 .brand{
   display:flex;
   gap:10px;
   align-items:center;
-  letter-spacing:0.4px;
-  font-weight:650;
+  letter-spacing:0.3px;
+  font-weight:750;
   font-size:13px;
 }
 .badge{
@@ -42,16 +44,17 @@ html,body,#root{
   border:1px solid var(--line);
   border-radius:999px;
   color:var(--muted);
+  background:linear-gradient(#ffffff,#ececf1);
 }
 .hint{font-size:12px;color:var(--muted);}
 .canvas{flex:1;}
 
 .node{
-  width:320px;
+  width:340px;
   border-radius:14px;
   border:1px solid var(--line);
   background:linear-gradient(180deg,var(--panel),var(--panel2));
-  box-shadow:0 14px 40px var(--shadow);
+  box-shadow:0 16px 34px var(--shadow);
   overflow:hidden;
 }
 .nodeHeader{
@@ -60,8 +63,9 @@ html,body,#root{
   align-items:baseline;
   justify-content:space-between;
   border-bottom:1px solid var(--line);
+  background:linear-gradient(#ffffff,#efeff4);
 }
-.nodeTitle{font-weight:700;font-size:13px;letter-spacing:0.2px;}
+.nodeTitle{font-weight:800;font-size:13px;letter-spacing:0.2px;}
 .nodeSub{font-size:11px;color:var(--muted);}
 .nodeBody{padding:12px;display:grid;gap:10px;}
 .row{display:grid;gap:6px;}
@@ -77,64 +81,82 @@ button,input,select{font-family:inherit;}
 .input{width:100%;}
 
 .react-flow__controls{
-  background:rgba(17,17,19,0.75);
+  background:linear-gradient(#ffffff,#efeff4);
   border:1px solid var(--line);
-  box-shadow:0 10px 30px var(--shadow);
+  box-shadow:0 12px 26px var(--shadow);
 }
 .react-flow__controls button{
   background:transparent;
   color:var(--text);
   border-bottom:1px solid var(--line);
 }
-.react-flow__controls button:hover{background:rgba(255,255,255,0.05);}
+.react-flow__controls button:hover{background:rgba(0,0,0,0.04);}
 .react-flow__minimap{
-  background:rgba(17,17,19,0.75);
+  background:rgba(255,255,255,0.75);
   border:1px solid var(--line);
 }
 
 /* Edge styles */
-.edge-audio path{stroke:#e5e7eb;stroke-width:2;opacity:.85;}
-.edge-event path{stroke:#a1a1aa;stroke-width:2;opacity:.9;stroke-dasharray:6 6;}
+.edge-audio path{stroke:#111114;stroke-width:2;opacity:.55;}
+.edge-event path{stroke:#111114;stroke-width:2;opacity:.55;stroke-dasharray:6 6;}
 
 /* Handle styles */
-.handle-audio{background:#e5e7eb !important;border:1px solid #3f3f46 !important;}
-.handle-event{background:#a1a1aa !important;border:1px solid #3f3f46 !important;}
+.handle-audio{background:#111114 !important;border:1px solid #fff !important;}
+.handle-event{background:#666 !important;border:1px solid #fff !important;}
 
-/* Panel */
 .panel{
   position:absolute;
   right:14px;
-  top:64px;
+  top:70px;
   z-index:10;
   display:grid;
   gap:10px;
-  width:220px;
+  width:240px;
   padding:10px;
   border:1px solid var(--line);
   border-radius:14px;
-  background:rgba(17,17,19,0.78);
-  backdrop-filter:blur(10px);
-  box-shadow:0 14px 40px var(--shadow);
+  background:linear-gradient(#ffffff,#efeff4);
+  box-shadow:0 16px 34px var(--shadow);
 }
-.panelTitle{
-  font-size:12px;
-  font-weight:700;
-  letter-spacing:0.2px;
-}
+.panelTitle{font-size:12px;font-weight:800;letter-spacing:0.2px;}
 .panelButtons{display:grid;gap:8px;}
 
 .smallBtn{
-  height:32px;
+  height:34px;
   border-radius:10px;
   border:1px solid var(--line);
-  background:rgba(255,255,255,0.04);
+  background:linear-gradient(#ffffff,#ededf1);
   color:var(--text);
   cursor:pointer;
   font-size:12px;
-  font-weight:650;
+  font-weight:750;
   letter-spacing:0.2px;
   text-align:left;
   padding:0 10px;
+  box-shadow:inset 0 1px 0 var(--hi);
 }
-.smallBtn:hover{background:rgba(255,255,255,0.06);}
+.smallBtn:hover{filter:brightness(0.98);}
 .fileInput{display:none;}
+
+/* Sequencer grid */
+.grid16{
+  display:grid;
+  grid-template-columns: repeat(16, 1fr);
+  gap:6px;
+}
+.stepBtn{
+  height:22px;
+  border-radius:7px;
+  border:1px solid var(--line);
+  background:linear-gradient(#ffffff,#ededf1);
+  box-shadow:inset 0 1px 0 var(--hi);
+  cursor:pointer;
+}
+.stepBtn.on{
+  background:linear-gradient(#111114,#4a4a55);
+  border-color:#111114;
+}
+.stepBtn:active{transform:translateY(1px);}
+
+/* Make ReactFlow not drag when interacting */
+.nodrag{ touch-action:none; }
