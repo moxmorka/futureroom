@@ -11,8 +11,10 @@ export function createOutputEngine(): ModuleEngine {
 
   const audioEl = document.createElement("audio");
   audioEl.autoplay = true;
-  audioEl.playsInline = true;
   audioEl.srcObject = dest.stream;
+
+  // TS-safe way to express "playsInline"
+  audioEl.setAttribute("playsinline", "true");
   audioEl.style.display = "none";
   document.body.appendChild(audioEl);
 
