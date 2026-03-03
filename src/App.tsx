@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import ReactFlow, {
   Background,
   Controls,
@@ -6,44 +6,63 @@ import ReactFlow, {
   addEdge,
   applyEdgeChanges,
   applyNodeChanges,
-  Connection,
-  Edge,
-  Node,
+  type Connection,
+  type Edge,
+  type Node,
+  useReactFlow,
+  ReactFlowProvider,
 } from "reactflow";
 import "reactflow/dist/style.css";
 
-import { useStore } from "./state/store";
+import { useStore, type ModuleUIType } from "./state/store";
 import { GraphRuntime, type EdgeData } from "./runtime/GraphRuntime";
 import type { ModuleNodeData } from "./runtime/types";
 import { ensureAudioRunning } from "./audio/audioContext";
 
-import { FMNode } from "./nodes/FMNode";
-import { SamplerNode } from "./nodes/SamplerNode";
+import { ClockNode } from "./nodes/ClockNode";
 import { OutputNode } from "./nodes/OutputNode";
 import { ScopeNode } from "./nodes/ScopeNode";
-import { ClockNode } from "./nodes/ClockNode";
-import { SequencerNode } from "./nodes/SequencerNode";
+import { DigitoneNode } from "./nodes/DigitoneNode";
+import { DigitaktNode } from "./nodes/DigitaktNode";
+import { MonomachineNode } from "./nodes/MonomachineNode";
 
-export default function App() {
+import {
+  toPatch,
+  savePatchToLocalStorage,
+  loadPatchFromLocalStorage,
+  downloadJSON,
+  readJSONFile,
+  type PatchV1,
+} from "./runtime/patch";
+
+function InnerApp() {
   const nodes = useStore((s) => s.nodes) as Node<ModuleNodeData>[];
   const edges = useStore((s) => s.edges) as Edge<EdgeData>[];
   const setNodes = useStore((s) => s.setNodes);
   const setEdges = useStore((s) => s.setEdges);
+  const setPatch = useStore((s) => s.setPatch);
+  const addModule = useStore((s) => s.addModule);
+  const reset = useStore((s) => s.reset);
 
   const runtime = useMemo(() => new GraphRuntime(), []);
+  const { screenToFlowPosition } = useReactFlow();
 
+  const importInputRef = useRef<HTMLInputElement | null>(null);
+  const [panelOpen, setPanelOpen] = useState(true);
+
+  // Sync graph -> runtime
   useEffect(() => {
     runtime.sync(nodes, edges);
   }, [nodes, edges, runtime]);
 
   const nodeTypes = useMemo(
     () => ({
-      fmNode: (props: any) => <FMNode {...props} runtime={runtime} />,
-      samplerNode: (props: any) => <SamplerNode {...props} runtime={runtime} />,
+      clockNode: (props: any) => <ClockNode {...props} runtime={runtime} />,
       outNode: OutputNode,
       scopeNode: (props: any) => <ScopeNode {...props} runtime={runtime} />,
-      clockNode: (props: any) => <ClockNode {...props} runtime={runtime} />,
-      seqNode: (props: any) => <SequencerNode {...props} runtime={runtime} />,
+      digitoneNode: (props: any) => <DigitoneNode {...props} runtime={runtime} />,
+      digitaktNode: (props: any) => <DigitaktNode {...props} runtime={runtime} />,
+      monomachineNode: (props: any) => <MonomachineNode {...props} runtime={runtime} />,
     }),
     [runtime]
   );
@@ -51,42 +70,148 @@ export default function App() {
   const onConnect = async (c: Connection) => {
     await ensureAudioRunning();
 
-    // Decide cable kind based on handle ids
     const isEvent =
       (c.sourceHandle?.toLowerCase().includes("event") ?? false) ||
       (c.targetHandle?.toLowerCase().includes("event") ?? false);
 
     const edge: Edge<EdgeData> = {
-      ...c,
+      ...(c as any),
       id: `e_${crypto.randomUUID()}`,
       data: { kind: isEvent ? "event" : "audio" },
       className: isEvent ? "edge-event" : "edge-audio",
-    } as any;
+    };
 
-    setEdges(addEdge(edge, edges));
+    setEdges(addEdge(edge as any, edges) as any);
   };
+
+  function getViewportCenterFlowPos() {
+    const x = window.innerWidth / 2;
+    const y = window.innerHeight / 2;
+    return screenToFlowPosition({ x, y });
+  }
+
+  function handleAdd(uiType: ModuleUIType) {
+    const pos = getViewportCenterFlowPos();
+    addModule(uiType, { x: pos.x - 120, y: pos.y - 60 });
+  }
+
+  function handleSave() {
+    const patch = toPatch(nodes, edges);
+    savePatchToLocalStorage(patch);
+  }
+
+  function handleLoad() {
+    const patch = loadPatchFromLocalStorage();
+    if (!patch) return;
+    setPatch(patch.nodes, patch.edges);
+  }
+
+  function handleExport() {
+    const patch = toPatch(nodes, edges);
+    downloadJSON(
+      `robot-patch-${new Date().toISOString().slice(0, 19).replace(/[:T]/g, "-")}.json`,
+      patch
+    );
+  }
+
+  async function handleImportFile(file: File) {
+    const obj = (await readJSONFile(file)) as PatchV1;
+    if (!obj || obj.version !== 1) return;
+    setPatch(obj.nodes, obj.edges);
+  }
 
   return (
     <div className="rf-shell">
       <div className="topbar">
         <div className="brand">
           <span>ROBOT INTERFACE</span>
-          <span className="badge">monochrome</span>
+          <span className="badge">patchable</span>
         </div>
-        <div className="hint">Drag modules • Connect handles • Start clock</div>
+
+        <div style={{ display: "flex", gap: 8 }}>
+          <button className="smallBtn" onClick={() => setPanelOpen((v) => !v)}>
+            {panelOpen ? "Hide" : "Show"}
+          </button>
+
+          <button className="smallBtn" onClick={handleSave}>
+            Save
+          </button>
+
+          <button className="smallBtn" onClick={handleLoad}>
+            Load
+          </button>
+
+          <button className="smallBtn" onClick={handleExport}>
+            Export
+          </button>
+
+          <input
+            ref={importInputRef}
+            className="fileInput"
+            type="file"
+            accept="application/json,.json"
+            onChange={(e) => {
+              const f = e.target.files?.[0];
+              if (f) void handleImportFile(f);
+              if (importInputRef.current) importInputRef.current.value = "";
+            }}
+          />
+
+          <button
+            className="smallBtn"
+            onClick={() => importInputRef.current?.click()}
+          >
+            Import
+          </button>
+
+          <button className="smallBtn" onClick={reset}>
+            Reset
+          </button>
+        </div>
       </div>
 
-      <div className="canvas">
+      <div className="canvas" style={{ position: "relative" }}>
+        {panelOpen && (
+          <div className="panel">
+            <div className="panelTitle">Add Module</div>
+            <div className="panelButtons">
+              <button className="smallBtn" onClick={() => handleAdd("clockNode")}>
+                Clock
+              </button>
+              <button className="smallBtn" onClick={() => handleAdd("digitoneNode")}>
+                Digitone
+              </button>
+              <button className="smallBtn" onClick={() => handleAdd("digitaktNode")}>
+                Digitakt
+              </button>
+              <button className="smallBtn" onClick={() => handleAdd("monomachineNode")}>
+                Monomachine
+              </button>
+              <button className="smallBtn" onClick={() => handleAdd("scopeNode")}>
+                Scope
+              </button>
+              <button className="smallBtn" onClick={() => handleAdd("outNode")}>
+                Output
+              </button>
+            </div>
+          </div>
+        )}
+
         <ReactFlow
           nodes={nodes}
           edges={edges.map((e) => ({
             ...e,
-            className: e.data?.kind === "event" ? "edge-event" : "edge-audio",
+            className:
+              e.data?.kind === "event" ? "edge-event" : "edge-audio",
           }))}
           nodeTypes={nodeTypes}
           onConnect={onConnect}
-          onNodesChange={(ch) => setNodes(applyNodeChanges(ch, nodes))}
-          onEdgesChange={(ch) => setEdges(applyEdgeChanges(ch, edges))}
+          onNodesChange={(ch) =>
+            setNodes(applyNodeChanges(ch, nodes))
+          }
+          onEdgesChange={(ch) =>
+            setEdges(applyEdgeChanges(ch, edges))
+          }
           fitView
         >
           <Background />
@@ -95,5 +220,13 @@ export default function App() {
         </ReactFlow>
       </div>
     </div>
+  );
+}
+
+export default function App() {
+  return (
+    <ReactFlowProvider>
+      <InnerApp />
+    </ReactFlowProvider>
   );
 }
