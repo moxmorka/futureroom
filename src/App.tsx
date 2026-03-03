@@ -212,6 +212,12 @@ function InnerApp() {
           onEdgesChange={(ch) =>
             setEdges(applyEdgeChanges(ch, edges))
           }
+          onNodeContextMenu={(e, node) => {
+            e.preventDefault();
+            // delete node + any connected edges
+            setNodes(nodes.filter((n) => n.id !== node.id));
+            setEdges(edges.filter((ed) => ed.source !== node.id && ed.target !== node.id));
+          }}
           fitView
         >
           <Background />
