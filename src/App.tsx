@@ -25,6 +25,9 @@ import { ScopeNode } from "./nodes/ScopeNode";
 import { DigitoneNode } from "./nodes/DigitoneNode";
 import { DigitaktNode } from "./nodes/DigitaktNode";
 import { MonomachineNode } from "./nodes/MonomachineNode";
+import { SamplerNode } from "./nodes/SamplerNode";
+import { PixelSeqNode } from "./nodes/PixelSeqNode";
+import { MixerNode } from "./nodes/MixerNode";
 
 import {
   toPatch,
@@ -34,10 +37,6 @@ import {
   readJSONFile,
   type PatchV1,
 } from "./runtime/patch";
-
-function clamp(n: number, a: number, b: number) {
-  return Math.max(a, Math.min(b, n));
-}
 
 function InnerApp() {
   const nodes = useStore((s) => s.nodes) as Node<ModuleNodeData>[];
@@ -54,37 +53,10 @@ function InnerApp() {
   const importInputRef = useRef<HTMLInputElement | null>(null);
   const [panelOpen, setPanelOpen] = useState(true);
 
-  // global tuning UI state (applied into synth node params)
-  const [globalTranspose, setGlobalTranspose] = useState(0); // semitones
-  const [globalTuneCents, setGlobalTuneCents] = useState(0); // cents
-
   // Sync graph -> runtime
   useEffect(() => {
     runtime.sync(nodes, edges);
   }, [nodes, edges, runtime]);
-
-  // Apply global tuning to relevant nodes whenever it changes
-  useEffect(() => {
-    setNodes(
-      nodes.map((n) => {
-        const mt = n.data?.moduleType;
-        if (mt !== "digitone" && mt !== "monomachine") return n;
-
-        return {
-          ...n,
-          data: {
-            ...n.data,
-            params: {
-              ...(n.data.params || {}),
-              globalTranspose,
-              globalTuneCents,
-            },
-          },
-        };
-      })
-    );
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [globalTranspose, globalTuneCents]);
 
   const nodeTypes = useMemo(
     () => ({
@@ -94,6 +66,9 @@ function InnerApp() {
       digitoneNode: (props: any) => <DigitoneNode {...props} runtime={runtime} />,
       digitaktNode: (props: any) => <DigitaktNode {...props} runtime={runtime} />,
       monomachineNode: (props: any) => <MonomachineNode {...props} runtime={runtime} />,
+      samplerNode: (props: any) => <SamplerNode {...props} runtime={runtime} />,
+      pixelSeqNode: (props: any) => <PixelSeqNode {...props} runtime={runtime} />,
+      mixerNode: (props: any) => <MixerNode {...props} runtime={runtime} />,
     }),
     [runtime]
   );
@@ -123,7 +98,7 @@ function InnerApp() {
 
   function handleAdd(uiType: ModuleUIType) {
     const pos = getViewportCenterFlowPos();
-    addModule(uiType, { x: pos.x - 120, y: pos.y - 60 });
+    addModule(uiType, { x: pos.x - 140, y: pos.y - 70 });
   }
 
   function handleSave() {
@@ -156,67 +131,11 @@ function InnerApp() {
       <div className="topbar">
         <div className="brand">
           <span>ROBOT INTERFACE</span>
-          <span className="badge">patchable</span>
-        </div>
-
-        {/* Global tuning */}
-        <div
-          className="nodrag"
-          style={{ display: "flex", gap: 10, alignItems: "center" }}
-          onPointerDown={(e) => e.stopPropagation()}
-        >
-          <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-            <span className="hint">Transpose</span>
-            <input
-              className="nodrag"
-              type="number"
-              value={globalTranspose}
-              min={-24}
-              max={24}
-              onPointerDown={(e) => e.stopPropagation()}
-              onChange={(e) => setGlobalTranspose(clamp(Number(e.target.value), -24, 24))}
-              style={{
-                width: 64,
-                height: 30,
-                borderRadius: 10,
-                border: "1px solid var(--line)",
-                background: "rgba(255,255,255,0.04)",
-                color: "var(--text)",
-                padding: "0 10px",
-              }}
-            />
-          </div>
-
-          <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-            <span className="hint">Tune</span>
-            <input
-              className="nodrag"
-              type="number"
-              value={globalTuneCents}
-              min={-50}
-              max={50}
-              onPointerDown={(e) => e.stopPropagation()}
-              onChange={(e) => setGlobalTuneCents(clamp(Number(e.target.value), -50, 50))}
-              style={{
-                width: 64,
-                height: 30,
-                borderRadius: 10,
-                border: "1px solid var(--line)",
-                background: "rgba(255,255,255,0.04)",
-                color: "var(--text)",
-                padding: "0 10px",
-              }}
-            />
-            <span className="hint">cents</span>
-          </div>
+          <span className="badge">sampler • pixel • mixer</span>
         </div>
 
         <div style={{ display: "flex", gap: 8 }}>
-          <button
-            className="smallBtn nodrag"
-            onPointerDown={(e) => e.stopPropagation()}
-            onClick={() => setPanelOpen((v) => !v)}
-          >
+          <button className="smallBtn nodrag" onPointerDown={(e) => e.stopPropagation()} onClick={() => setPanelOpen((v) => !v)}>
             {panelOpen ? "Hide" : "Show"}
           </button>
 
@@ -253,11 +172,7 @@ function InnerApp() {
             }}
           />
 
-          <button
-            className="smallBtn nodrag"
-            onPointerDown={(e) => e.stopPropagation()}
-            onClick={() => importInputRef.current?.click()}
-          >
+          <button className="smallBtn nodrag" onPointerDown={(e) => e.stopPropagation()} onClick={() => importInputRef.current?.click()}>
             Import
           </button>
 
@@ -272,24 +187,14 @@ function InnerApp() {
           <div className="panel nodrag" onPointerDown={(e) => e.stopPropagation()}>
             <div className="panelTitle">Add Module</div>
             <div className="panelButtons">
-              <button className="smallBtn" onClick={() => handleAdd("clockNode")}>
-                Clock
-              </button>
-              <button className="smallBtn" onClick={() => handleAdd("digitoneNode")}>
-                Digitone
-              </button>
-              <button className="smallBtn" onClick={() => handleAdd("digitaktNode")}>
-                Digitakt
-              </button>
-              <button className="smallBtn" onClick={() => handleAdd("monomachineNode")}>
-                Monomachine
-              </button>
-              <button className="smallBtn" onClick={() => handleAdd("scopeNode")}>
-                Scope
-              </button>
-              <button className="smallBtn" onClick={() => handleAdd("outNode")}>
-                Output
-              </button>
+              <button className="smallBtn" onClick={() => handleAdd("clockNode")}>Clock</button>
+              <button className="smallBtn" onClick={() => handleAdd("digitoneNode")}>Digitone</button>
+              <button className="smallBtn" onClick={() => handleAdd("monomachineNode")}>Monomachine</button>
+              <button className="smallBtn" onClick={() => handleAdd("samplerNode")}>Sampler</button>
+              <button className="smallBtn" onClick={() => handleAdd("pixelSeqNode")}>PixelSeq</button>
+              <button className="smallBtn" onClick={() => handleAdd("mixerNode")}>Mixer</button>
+              <button className="smallBtn" onClick={() => handleAdd("scopeNode")}>Scope</button>
+              <button className="smallBtn" onClick={() => handleAdd("outNode")}>Output</button>
             </div>
             <div className="hint" style={{ marginTop: 6 }}>
               Tip: Right-click a node to delete it.
