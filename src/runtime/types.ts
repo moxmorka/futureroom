@@ -1,5 +1,3 @@
-export type PortKind = "audio" | "event";
-
 export type EventMessage =
   | { type: "noteOn"; note: number; velocity: number }
   | { type: "noteOff"; note: number }
@@ -7,7 +5,7 @@ export type EventMessage =
   | { type: "start" }
   | { type: "stop" };
 
-export type ModuleParamValue = number | string | boolean;
+export type ModuleParamValue = number | string | boolean | null | undefined;
 
 export type ModuleNodeData = {
   moduleType: string;
