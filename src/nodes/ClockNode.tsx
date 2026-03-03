@@ -4,6 +4,7 @@ import { useStore } from "../state/store";
 import { Slider } from "../ui/Slider";
 import { Button } from "../ui/Button";
 import { formatNum } from "../ui/theme";
+import { ensureAudioRunning } from "../audio/audioContext";
 
 export function ClockNode({ id, data, runtime }: any) {
   const update = useStore((s) => s.updateParam);
@@ -37,7 +38,8 @@ export function ClockNode({ id, data, runtime }: any) {
         </div>
 
         <Button
-          onClick={() => {
+          onClick={async () => {
+            await ensureAudioRunning();
             const eng = runtime?.getEngine?.(id) as any;
             if (!eng) return;
             if (eng.isRunning?.()) eng.stop?.();
@@ -47,13 +49,7 @@ export function ClockNode({ id, data, runtime }: any) {
           {running ? "Stop" : "Start"}
         </Button>
 
-        <Handle
-          className="handle-event"
-          type="source"
-          position={Position.Right}
-          id="eventOut"
-          style={{ top: 28 }}
-        />
+        <Handle className="handle-event" type="source" position={Position.Right} id="eventOut" style={{ top: 28 }} />
       </div>
     </div>
   );
