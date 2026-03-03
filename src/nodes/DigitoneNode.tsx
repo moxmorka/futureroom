@@ -3,38 +3,36 @@ import { Handle, Position } from "reactflow";
 import { useStore } from "../state/store";
 import { Slider } from "../ui/Slider";
 import { Button } from "../ui/Button";
+import { StepGrid } from "../ui/StepGrid";
 import { formatNum } from "../ui/theme";
 import { ensureAudioRunning } from "../audio/audioContext";
 
-const KEYS = [
-  ["C", 0], ["C#", 1], ["D", 2], ["D#", 3], ["E", 4], ["F", 5],
-  ["F#", 6], ["G", 7], ["G#", 8], ["A", 9], ["A#", 10], ["B", 11],
-] as const;
+const SCALES = [
+  { id: "chromatic", name: "Chromatic" },
+  { id: "major", name: "Major" },
+  { id: "minor", name: "Minor" },
+  { id: "dorian", name: "Dorian" },
+  { id: "pentatonic", name: "Pentatonic" },
+];
 
-function midiFromKeyOct(key: number, oct: number) {
-  // C4 = 60 => (oct+1)*12 + key
-  return (oct + 1) * 12 + key;
-}
-
-function togglePattern(pattern: string, idx: number) {
-  const p = (pattern || "0000000000000000").padEnd(16, "0").slice(0, 16);
-  const a = p.split("");
-  a[idx] = a[idx] === "1" ? "0" : "1";
-  return a.join("");
+function toggleAt(pattern: string, idx: number, steps = 16) {
+  const p = (pattern || "").padEnd(steps, "0").slice(0, steps).split("");
+  p[idx] = p[idx] === "1" ? "0" : "1";
+  return p.join("");
 }
 
 export function DigitoneNode({ id, data, runtime }: any) {
   const update = useStore((s) => s.updateParam);
   const p = data.params || {};
 
-  const pattern = String(p.seqPattern ?? "1000100010001000").padEnd(16, "0").slice(0, 16);
   const seqOn = Boolean(p.seqOn ?? true);
-
+  const steps = 16;
+  const pattern = String(p.seqPattern ?? "1000100010001000");
   const note = Number(p.seqNote ?? 48);
-  const keyGuess = ((note % 12) + 12) % 12;
-  const octGuess = Math.floor(note / 12) - 1;
+  const scale = String(p.seqScale ?? "chromatic");
+  const transpose = Number(p.seqTranspose ?? 0);
 
-  const keyLabel = useMemo(() => KEYS.find((k) => k[1] === keyGuess)?.[0] ?? "C", [keyGuess]);
+  const noteLabel = useMemo(() => `MIDI ${note}`, [note]);
 
   async function trig() {
     await ensureAudioRunning();
@@ -45,98 +43,107 @@ export function DigitoneNode({ id, data, runtime }: any) {
   }
 
   return (
-    <div className="node" style={{ width: 360 }}>
+    <div className="node" style={{ width: 380 }}>
       <div className="nodeHeader">
         <div>
           <div className="nodeTitle">Digitone</div>
-          <div className="nodeSub">FM + 16-step</div>
+          <div className="nodeSub">FM synth + seq</div>
         </div>
-        <div className="badge">AUDIO</div>
+        <div className="badge">{seqOn ? "SEQ ON" : "SEQ OFF"}</div>
       </div>
 
       <div className="nodeBody">
         <Button onPointerDown={(e) => { e.stopPropagation(); void trig(); }} onPointerUp={(e) => { e.stopPropagation(); rel(); }}>
-          Trigger ({keyLabel}{octGuess})
+          Trigger ({noteLabel})
         </Button>
 
         <div className="row nodrag" onPointerDown={(e) => e.stopPropagation()}>
           <div className="labelRow">
             <span>Sequencer</span>
-            <span className="value">{seqOn ? "ON" : "OFF"}</span>
-          </div>
-          <Button
-            style={{ height: 30 }}
-            onClick={() => update(id, "seqOn", !seqOn)}
-          >
-            {seqOn ? "Disable Seq" : "Enable Seq"}
-          </Button>
-
-          <div className="grid16">
-            {Array.from({ length: 16 }, (_, i) => {
-              const on = pattern[i] === "1";
-              return (
-                <button
-                  key={i}
-                  className={`stepBtn nodrag ${on ? "on" : ""}`}
-                  onPointerDown={(e) => e.stopPropagation()}
-                  onClick={() => update(id, "seqPattern", togglePattern(pattern, i))}
-                  title={`Step ${i + 1}`}
-                />
-              );
-            })}
-          </div>
-        </div>
-
-        <div className="row nodrag" onPointerDown={(e) => e.stopPropagation()}>
-          <div className="labelRow">
-            <span>Note</span>
-            <span className="value">{note}</span>
+            <span className="value">{seqOn ? "enabled" : "disabled"}</span>
           </div>
 
           <div style={{ display: "flex", gap: 8 }}>
-            <select
-              className="nodrag"
-              value={String(keyGuess)}
-              onPointerDown={(e) => e.stopPropagation()}
-              onChange={(e) => update(id, "seqNote", midiFromKeyOct(Number(e.target.value), octGuess))}
-              style={{
-                height: 34,
-                borderRadius: 10,
-                border: "1px solid var(--line)",
-                background: "linear-gradient(#ffffff,#ededf1)",
-                color: "var(--text)",
-                padding: "0 10px",
-                flex: 1,
-              }}
-            >
-              {KEYS.map(([name, v]) => (
-                <option key={name} value={v} style={{ background: "#fff" }}>
-                  {name}
-                </option>
-              ))}
-            </select>
+            <Button style={{ height: 30, flex: 1 }} onClick={() => update(id, "seqOn", !seqOn)}>
+              {seqOn ? "Disable" : "Enable"}
+            </Button>
+            <Button style={{ height: 30, width: 120 }} onClick={() => update(id, "seqPattern", "1000100010001000")}>
+              Reset
+            </Button>
+          </div>
 
-            <select
-              className="nodrag"
-              value={String(octGuess)}
-              onPointerDown={(e) => e.stopPropagation()}
-              onChange={(e) => update(id, "seqNote", midiFromKeyOct(keyGuess, Number(e.target.value)))}
-              style={{
-                height: 34,
-                borderRadius: 10,
-                border: "1px solid var(--line)",
-                background: "linear-gradient(#ffffff,#ededf1)",
-                color: "var(--text)",
-                padding: "0 10px",
-                width: 90,
-              }}
-            >
-              {Array.from({ length: 9 }, (_, i) => i - 1).map((o) => (
-                <option key={o} value={o} style={{ background: "#fff" }}>
-                  Oct {o}
-                </option>
-              ))}
-            </select>
+          <StepGrid
+            steps={steps}
+            pattern={pattern}
+            onToggle={(i) => update(id, "seqPattern", toggleAt(pattern, i, steps))}
+          />
+
+          <div style={{ display: "flex", gap: 8 }}>
+            <label style={{ flex: 1 }}>
+              <div className="hint">Root note</div>
+              <input
+                className="nodrag"
+                type="number"
+                value={note}
+                min={0}
+                max={127}
+                onPointerDown={(e) => e.stopPropagation()}
+                onChange={(e) => update(id, "seqNote", Number(e.target.value))}
+                style={{
+                  width: "100%",
+                  height: 34,
+                  borderRadius: 10,
+                  border: "1px solid var(--line)",
+                  background: "linear-gradient(#ffffff,#ededf1)",
+                  padding: "0 10px",
+                }}
+              />
+            </label>
+
+            <label style={{ flex: 1 }}>
+              <div className="hint">Scale</div>
+              <select
+                className="nodrag"
+                value={scale}
+                onPointerDown={(e) => e.stopPropagation()}
+                onChange={(e) => update(id, "seqScale", e.target.value)}
+                style={{
+                  width: "100%",
+                  height: 34,
+                  borderRadius: 10,
+                  border: "1px solid var(--line)",
+                  background: "linear-gradient(#ffffff,#ededf1)",
+                  padding: "0 10px",
+                }}
+              >
+                {SCALES.map((s) => (
+                  <option key={s.id} value={s.id} style={{ background: "#fff" }}>
+                    {s.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            <label style={{ width: 92 }}>
+              <div className="hint">Transp</div>
+              <input
+                className="nodrag"
+                type="number"
+                value={transpose}
+                min={-24}
+                max={24}
+                onPointerDown={(e) => e.stopPropagation()}
+                onChange={(e) => update(id, "seqTranspose", Number(e.target.value))}
+                style={{
+                  width: "100%",
+                  height: 34,
+                  borderRadius: 10,
+                  border: "1px solid var(--line)",
+                  background: "linear-gradient(#ffffff,#ededf1)",
+                  padding: "0 10px",
+                }}
+              />
+            </label>
           </div>
         </div>
 
