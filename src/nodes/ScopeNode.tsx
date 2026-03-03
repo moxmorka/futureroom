@@ -7,21 +7,23 @@ export function ScopeNode({ id, runtime }: any) {
   const rafRef = useRef<number | null>(null);
 
   useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
+    if (!canvasRef.current) return;
 
-    function loop() {
+    const loop = () => {
       const eng = runtime?.getEngine?.(id);
       const analyser = eng?.analyser;
-      if (analyser) {
+
+      if (analyser && canvasRef.current) {
         const buf = new Float32Array(analyser.fftSize);
         analyser.getFloatTimeDomainData(buf);
-        drawScope(canvas, buf);
+        drawScope(canvasRef.current, buf);
       }
+
       rafRef.current = requestAnimationFrame(loop);
-    }
+    };
 
     rafRef.current = requestAnimationFrame(loop);
+
     return () => {
       if (rafRef.current) cancelAnimationFrame(rafRef.current);
     };
@@ -42,10 +44,28 @@ export function ScopeNode({ id, runtime }: any) {
           ref={canvasRef}
           width={270}
           height={90}
-          style={{ width: "100%", borderRadius: 12, border: "1px solid var(--line)" }}
+          style={{
+            width: "100%",
+            borderRadius: 12,
+            border: "1px solid var(--line)"
+          }}
         />
-        <Handle className="handle-audio" type="target" position={Position.Left} id="audioIn" style={{ top: 28 }} />
-        <Handle className="handle-audio" type="source" position={Position.Right} id="audioOut" style={{ top: 28 }} />
+
+        <Handle
+          className="handle-audio"
+          type="target"
+          position={Position.Left}
+          id="audioIn"
+          style={{ top: 28 }}
+        />
+
+        <Handle
+          className="handle-audio"
+          type="source"
+          position={Position.Right}
+          id="audioOut"
+          style={{ top: 28 }}
+        />
       </div>
     </div>
   );
