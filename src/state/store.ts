@@ -15,12 +15,9 @@ export type ModuleUIType =
 export type Store = {
   nodes: Node<ModuleNodeData>[];
   edges: Edge<EdgeData>[];
-
   setNodes: (n: Node<ModuleNodeData>[]) => void;
   setEdges: (e: Edge<EdgeData>[]) => void;
-
   updateParam: (nodeId: string, key: string, value: any) => void;
-
   setPatch: (nodes: Node<ModuleNodeData>[], edges: Edge<EdgeData>[]) => void;
   addModule: (uiType: ModuleUIType, pos: XYPosition) => void;
   reset: () => void;
@@ -39,19 +36,55 @@ function defaultGraph(): { nodes: Node<ModuleNodeData>[]; edges: Edge<EdgeData>[
         id: "dt1",
         type: "digitaktNode",
         position: { x: 420, y: 40 },
-        data: { moduleType: "digitakt", params: { steps: 16 } },
+        data: {
+          moduleType: "digitakt",
+          params: {
+            steps: 16,
+            seqOn: true,
+            seqPattern: "1000100010001000",
+            seqTicksPerStep: 6,
+          },
+        },
       },
       {
         id: "dn1",
         type: "digitoneNode",
         position: { x: 420, y: 240 },
-        data: { moduleType: "digitone", params: { algo: 0, cutoff: 14000, resonance: 0.7 } },
+        data: {
+          moduleType: "digitone",
+          params: {
+            algo: 0,
+            cutoff: 14000,
+            resonance: 0.7,
+            seqOn: true,
+            seqPattern: "1000100010001000",
+            seqNote: 48,
+            seqTicksPerStep: 6,
+            seqGateTicks: 3,
+            globalTranspose: 0,
+            globalTuneCents: 0,
+          },
+        },
       },
       {
         id: "mm1",
         type: "monomachineNode",
         position: { x: 420, y: 520 },
-        data: { moduleType: "monomachine", params: { machine: "supersaw", cutoff: 12000, resonance: 0.6 } },
+        data: {
+          moduleType: "monomachine",
+          params: {
+            machine: "supersaw",
+            cutoff: 12000,
+            resonance: 0.6,
+            seqOn: true,
+            seqPattern: "1000100010001000",
+            seqNote: 36,
+            seqTicksPerStep: 6,
+            seqGateTicks: 3,
+            globalTranspose: 0,
+            globalTuneCents: 0,
+          },
+        },
       },
       {
         id: "tap1",
@@ -71,6 +104,22 @@ function defaultGraph(): { nodes: Node<ModuleNodeData>[]; edges: Edge<EdgeData>[
         id: "e1",
         source: "clock1",
         target: "dt1",
+        sourceHandle: "eventOut",
+        targetHandle: "eventIn",
+        data: { kind: "event" },
+      },
+      {
+        id: "e1b",
+        source: "clock1",
+        target: "dn1",
+        sourceHandle: "eventOut",
+        targetHandle: "eventIn",
+        data: { kind: "event" },
+      },
+      {
+        id: "e1c",
+        source: "clock1",
+        target: "mm1",
         sourceHandle: "eventOut",
         targetHandle: "eventIn",
         data: { kind: "event" },
@@ -120,11 +169,42 @@ function moduleDefaults(uiType: ModuleUIType): ModuleNodeData {
     case "scopeNode":
       return { moduleType: "scopeTap", params: {} };
     case "digitaktNode":
-      return { moduleType: "digitakt", params: { steps: 16 } };
+      return {
+        moduleType: "digitakt",
+        params: { steps: 16, seqOn: true, seqPattern: "1000100010001000", seqTicksPerStep: 6 },
+      };
     case "digitoneNode":
-      return { moduleType: "digitone", params: { algo: 0, cutoff: 14000, resonance: 0.7 } };
+      return {
+        moduleType: "digitone",
+        params: {
+          algo: 0,
+          cutoff: 14000,
+          resonance: 0.7,
+          seqOn: true,
+          seqPattern: "1000100010001000",
+          seqNote: 48,
+          seqTicksPerStep: 6,
+          seqGateTicks: 3,
+          globalTranspose: 0,
+          globalTuneCents: 0,
+        },
+      };
     case "monomachineNode":
-      return { moduleType: "monomachine", params: { machine: "supersaw", cutoff: 12000, resonance: 0.6 } };
+      return {
+        moduleType: "monomachine",
+        params: {
+          machine: "supersaw",
+          cutoff: 12000,
+          resonance: 0.6,
+          seqOn: true,
+          seqPattern: "1000100010001000",
+          seqNote: 36,
+          seqTicksPerStep: 6,
+          seqGateTicks: 3,
+          globalTranspose: 0,
+          globalTuneCents: 0,
+        },
+      };
   }
 }
 
@@ -141,9 +221,7 @@ export const useStore = create<Store>((set) => {
     updateParam: (nodeId, key, value) =>
       set((s) => ({
         nodes: s.nodes.map((n) =>
-          n.id === nodeId
-            ? { ...n, data: { ...n.data, params: { ...n.data.params, [key]: value } } }
-            : n
+          n.id === nodeId ? { ...n, data: { ...n.data, params: { ...n.data.params, [key]: value } } } : n
         ),
       })),
 
@@ -152,14 +230,12 @@ export const useStore = create<Store>((set) => {
     addModule: (uiType, pos) => {
       const id = uid(uiType.replace("Node", "").toLowerCase());
       const def = moduleDefaults(uiType);
-
       const newNode: Node<ModuleNodeData> = {
         id,
         type: uiType,
         position: pos,
         data: { moduleType: def.moduleType, params: def.params },
       };
-
       set((s) => ({ nodes: [...s.nodes, newNode] }));
     },
 
