@@ -1,147 +1,140 @@
-:root {
-  --bg: #0b0b0c;
-  --panel: #111113;
-  --panel2: #151518;
-  --text: #f3f4f6;
-  --muted: #a1a1aa;
-  --line: #2a2a2f;
-  --shadow: rgba(0,0,0,0.4);
-  --focus: #e5e7eb;
+:root{
+  --bg:#0b0b0c;
+  --panel:#111113;
+  --panel2:#151518;
+  --text:#f3f4f6;
+  --muted:#a1a1aa;
+  --line:#2a2a2f;
+  --shadow:rgba(0,0,0,0.4);
 }
 
-* { box-sizing: border-box; }
-html, body, #root { height: 100%; margin: 0; background: var(--bg); color: var(--text); font-family: ui-sans-serif, system-ui, -apple-system, "SF Pro Display", "SF Pro Text", Segoe UI, Roboto, Arial; }
-
-a { color: inherit; }
-button, input { font-family: inherit; }
-
-.rf-shell {
-  height: 100%;
-  display: flex;
-  flex-direction: column;
+*{box-sizing:border-box;}
+html,body,#root{
+  height:100%;
+  margin:0;
+  background:var(--bg);
+  color:var(--text);
+  font-family:ui-sans-serif,system-ui,-apple-system,"SF Pro Text","SF Pro Display",Segoe UI,Roboto,Arial;
 }
 
-.topbar {
-  height: 52px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 0 14px;
-  border-bottom: 1px solid var(--line);
-  background: rgba(17,17,19,0.75);
-  backdrop-filter: blur(10px);
+.rf-shell{height:100%;display:flex;flex-direction:column;}
+.topbar{
+  height:52px;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  padding:0 14px;
+  border-bottom:1px solid var(--line);
+  background:rgba(17,17,19,0.75);
+  backdrop-filter:blur(10px);
+}
+.brand{
+  display:flex;
+  gap:10px;
+  align-items:center;
+  letter-spacing:0.4px;
+  font-weight:650;
+  font-size:13px;
+}
+.badge{
+  font-size:11px;
+  padding:4px 8px;
+  border:1px solid var(--line);
+  border-radius:999px;
+  color:var(--muted);
+}
+.hint{font-size:12px;color:var(--muted);}
+.canvas{flex:1;}
+
+.node{
+  width:320px;
+  border-radius:14px;
+  border:1px solid var(--line);
+  background:linear-gradient(180deg,var(--panel),var(--panel2));
+  box-shadow:0 14px 40px var(--shadow);
+  overflow:hidden;
+}
+.nodeHeader{
+  padding:10px 12px;
+  display:flex;
+  align-items:baseline;
+  justify-content:space-between;
+  border-bottom:1px solid var(--line);
+}
+.nodeTitle{font-weight:700;font-size:13px;letter-spacing:0.2px;}
+.nodeSub{font-size:11px;color:var(--muted);}
+.nodeBody{padding:12px;display:grid;gap:10px;}
+.row{display:grid;gap:6px;}
+.labelRow{
+  display:flex;
+  justify-content:space-between;
+  font-size:12px;
+  color:var(--muted);
+}
+.value{font-variant-numeric:tabular-nums;color:var(--text);}
+
+button,input,select{font-family:inherit;}
+.input{width:100%;}
+
+.react-flow__controls{
+  background:rgba(17,17,19,0.75);
+  border:1px solid var(--line);
+  box-shadow:0 10px 30px var(--shadow);
+}
+.react-flow__controls button{
+  background:transparent;
+  color:var(--text);
+  border-bottom:1px solid var(--line);
+}
+.react-flow__controls button:hover{background:rgba(255,255,255,0.05);}
+.react-flow__minimap{
+  background:rgba(17,17,19,0.75);
+  border:1px solid var(--line);
 }
 
-.brand {
-  display: flex;
-  gap: 10px;
-  align-items: center;
-  letter-spacing: 0.4px;
-  font-weight: 600;
-  font-size: 13px;
-  color: var(--text);
-}
+/* Edge styles */
+.edge-audio path{stroke:#e5e7eb;stroke-width:2;opacity:.85;}
+.edge-event path{stroke:#a1a1aa;stroke-width:2;opacity:.9;stroke-dasharray:6 6;}
 
-.badge {
-  font-size: 11px;
-  padding: 4px 8px;
-  border: 1px solid var(--line);
-  border-radius: 999px;
-  color: var(--muted);
-}
+/* Handle styles */
+.handle-audio{background:#e5e7eb !important;border:1px solid #3f3f46 !important;}
+.handle-event{background:#a1a1aa !important;border:1px solid #3f3f46 !important;}
 
-.hint {
-  font-size: 12px;
-  color: var(--muted);
+/* Panel */
+.panel{
+  position:absolute;
+  right:14px;
+  top:64px;
+  z-index:10;
+  display:grid;
+  gap:10px;
+  width:220px;
+  padding:10px;
+  border:1px solid var(--line);
+  border-radius:14px;
+  background:rgba(17,17,19,0.78);
+  backdrop-filter:blur(10px);
+  box-shadow:0 14px 40px var(--shadow);
 }
-
-.canvas {
-  flex: 1;
+.panelTitle{
+  font-size:12px;
+  font-weight:700;
+  letter-spacing:0.2px;
 }
+.panelButtons{display:grid;gap:8px;}
 
-.react-flow__controls {
-  background: rgba(17,17,19,0.75);
-  border: 1px solid var(--line);
-  box-shadow: 0 10px 30px var(--shadow);
+.smallBtn{
+  height:32px;
+  border-radius:10px;
+  border:1px solid var(--line);
+  background:rgba(255,255,255,0.04);
+  color:var(--text);
+  cursor:pointer;
+  font-size:12px;
+  font-weight:650;
+  letter-spacing:0.2px;
+  text-align:left;
+  padding:0 10px;
 }
-.react-flow__controls button {
-  background: transparent;
-  color: var(--text);
-  border-bottom: 1px solid var(--line);
-}
-.react-flow__controls button:hover { background: rgba(255,255,255,0.05); }
-
-.react-flow__minimap {
-  background: rgba(17,17,19,0.75);
-  border: 1px solid var(--line);
-}
-
-.edge-audio path { stroke: #e5e7eb; stroke-width: 2; opacity: 0.8; }
-.edge-event path { stroke: #a1a1aa; stroke-width: 2; opacity: 0.8; stroke-dasharray: 6 6; }
-
-.handle-audio { background: #e5e7eb !important; border: 1px solid #3f3f46 !important; }
-.handle-event { background: #a1a1aa !important; border: 1px solid #3f3f46 !important; }
-
-.node {
-  width: 260px;
-  border-radius: 14px;
-  border: 1px solid var(--line);
-  background: linear-gradient(180deg, var(--panel), var(--panel2));
-  box-shadow: 0 14px 40px var(--shadow);
-  overflow: hidden;
-}
-
-.nodeHeader {
-  padding: 10px 12px;
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  border-bottom: 1px solid var(--line);
-}
-
-.nodeTitle {
-  font-weight: 650;
-  font-size: 13px;
-  letter-spacing: 0.2px;
-}
-
-.nodeSub {
-  font-size: 11px;
-  color: var(--muted);
-}
-
-.nodeBody {
-  padding: 12px;
-  display: grid;
-  gap: 10px;
-}
-
-.row {
-  display: grid;
-  gap: 6px;
-}
-
-.labelRow {
-  display: flex;
-  justify-content: space-between;
-  font-size: 12px;
-  color: var(--muted);
-}
-
-.value {
-  font-variant-numeric: tabular-nums;
-  color: var(--text);
-}
-
-.input {
-  width: 100%;
-}
-
-.canvasOverlay {
-  position: absolute;
-  right: 14px;
-  top: 64px;
-  display: grid;
-  gap: 8px;
-  z-index: 10;
-}
+.smallBtn:hover{background:rgba(255,255,255,0.06);}
+.fileInput{display:none;}
