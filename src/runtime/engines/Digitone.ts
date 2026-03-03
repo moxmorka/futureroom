@@ -23,47 +23,29 @@ function create4OpVoice() {
   op1.type = op2.type = op3.type = op4.type = "sine";
   op1.connect(amp);
 
-  op1.start();
-  op2.start();
-  op3.start();
-  op4.start();
+  op1.start(); op2.start(); op3.start(); op4.start();
 
   function disconnectAllModRoutes() {
-    [op2, op3, op4, g12, g13, g14, g23, g34].forEach((n) => {
-      try {
-        n.disconnect();
-      } catch {}
-    });
+    [op2, op3, op4, g12, g13, g14, g23, g34].forEach((n) => { try { n.disconnect(); } catch {} });
   }
 
   function applyAlgo(algo: Algo) {
     disconnectAllModRoutes();
 
     if (algo === 0) {
-      op2.connect(g12);
-      g12.connect(op1.frequency);
-      op3.connect(g13);
-      g13.connect(op1.frequency);
-      op4.connect(g14);
-      g14.connect(op1.frequency);
+      op2.connect(g12); g12.connect(op1.frequency);
+      op3.connect(g13); g13.connect(op1.frequency);
+      op4.connect(g14); g14.connect(op1.frequency);
     }
-
     if (algo === 1) {
-      op4.connect(g34);
-      g34.connect(op3.frequency);
-      op3.connect(g23);
-      g23.connect(op2.frequency);
-      op2.connect(g12);
-      g12.connect(op1.frequency);
+      op4.connect(g34); g34.connect(op3.frequency);
+      op3.connect(g23); g23.connect(op2.frequency);
+      op2.connect(g12); g12.connect(op1.frequency);
     }
-
     if (algo === 2) {
-      op4.connect(g23);
-      g23.connect(op2.frequency);
-      op2.connect(g12);
-      g12.connect(op1.frequency);
-      op3.connect(g13);
-      g13.connect(op1.frequency);
+      op4.connect(g23); g23.connect(op2.frequency);
+      op2.connect(g12); g12.connect(op1.frequency);
+      op3.connect(g13); g13.connect(op1.frequency);
     }
   }
 
@@ -107,22 +89,11 @@ function create4OpVoice() {
     envOn,
     envOff,
     stop() {
-      // ✅ Only oscillators have stop()
       [op1, op2, op3, op4].forEach((o) => {
-        try {
-          o.stop();
-        } catch {}
-        try {
-          o.disconnect();
-        } catch {}
+        try { o.stop(); } catch {}
+        try { o.disconnect(); } catch {}
       });
-
-      // ✅ GainNode has no stop()
-      try {
-        amp.disconnect();
-      } catch {}
-
-      // Best-effort clean up modulation graph
+      try { amp.disconnect(); } catch {}
       disconnectAllModRoutes();
     },
   };
@@ -145,23 +116,28 @@ export function createDigitoneEngine(initial?: Record<string, any>): ModuleEngin
     gain: 0.85,
     attack: 0.005,
     release: 0.12,
-    r1: 1,
-    r2: 2,
-    r3: 3,
-    r4: 4,
-    i2: 160,
-    i3: 60,
-    i4: 30,
-    i23: 90,
-    i34: 90,
+    r1: 1, r2: 2, r3: 3, r4: 4,
+    i2: 160, i3: 60, i4: 30,
+    i23: 90, i34: 90,
     cutoff: 14000,
     resonance: 0.7,
+
+    // Sequencer
+    seqOn: false,
+    seqPattern: "1000100010001000",
+    seqNote: 48,
+    seqTicksPerStep: 6,
+    seqGateTicks: 3,
+
+    // Global tuning
+    globalTranspose: 0,
+    globalTuneCents: 0,
+
     ...initial,
   };
 
   type Slot = { voice: ReturnType<typeof create4OpVoice>; note: number | null; startedAt: number };
   const voices: Slot[] = [];
-
   for (let i = 0; i < state.poly; i++) {
     const v = create4OpVoice();
     v.out.connect(filter);
@@ -170,17 +146,54 @@ export function createDigitoneEngine(initial?: Record<string, any>): ModuleEngin
     voices.push({ voice: v, note: null, startedAt: 0 });
   }
 
+  function centsFactor(cents: number) {
+    return Math.pow(2, cents / 1200);
+  }
+
   function pickVoice(note: number) {
-    const existing = voices.find((v) => v.note === note);
+    const existing = voices.find(v => v.note === note);
     if (existing) return existing;
-
-    const free = voices.find((v) => v.note == null);
+    const free = voices.find(v => v.note == null);
     if (free) return free;
-
-    // voice stealing: oldest
     let oldest = voices[0];
     for (const v of voices) if (v.startedAt < oldest.startedAt) oldest = v;
     return oldest;
+  }
+
+  function noteOn(midi: number, vel: number) {
+    const n = midi + Number(state.globalTranspose || 0);
+    const slot = pickVoice(n);
+    slot.note = n;
+    slot.startedAt = performance.now();
+
+    const baseHz = midiToHz(n) * centsFactor(Number(state.globalTuneCents || 0));
+    slot.voice.applyAlgo(state.algo);
+    slot.voice.setRatios(baseHz, state.r1, state.r2, state.r3, state.r4);
+    slot.voice.setIndexes(state.i2, state.i3, state.i4, state.i23, state.i34);
+    slot.voice.envOn(vel, state.gain, state.attack);
+  }
+
+  function noteOff(midi: number) {
+    const n = midi + Number(state.globalTranspose || 0);
+    const slot = voices.find(v => v.note === n);
+    if (slot) {
+      slot.voice.envOff(state.release);
+      slot.note = null;
+    }
+  }
+
+  // Sequencer runtime
+  let seqRunning = false;
+  let tickCount = 0;
+  let step = 0;
+  let gateLeft = 0;
+  let gateNote: number | null = null;
+
+  function patternAt(i: number) {
+    const s = String(state.seqPattern || "");
+    if (!s.length) return false;
+    const idx = i % s.length;
+    return s[idx] === "1" || s[idx] === "x" || s[idx] === "X";
   }
 
   const engine: ModuleEngine = {
@@ -188,15 +201,11 @@ export function createDigitoneEngine(initial?: Record<string, any>): ModuleEngin
 
     setParam(key, value) {
       (state as any)[key] = value;
-
-      if (key === "algo") state.algo = Number(value) as Algo;
-
       const t = audioCtx.currentTime;
       if (key === "cutoff") filter.frequency.setValueAtTime(Number(value), t);
       if (key === "resonance") filter.Q.setValueAtTime(Number(value), t);
 
-      // Push structural changes into all voices
-      if (["algo", "i2", "i3", "i4", "i23", "i34"].includes(key)) {
+      if (["algo","i2","i3","i4","i23","i34"].includes(key)) {
         for (const v of voices) {
           v.voice.applyAlgo(state.algo);
           v.voice.setIndexes(state.i2, state.i3, state.i4, state.i23, state.i34);
@@ -205,35 +214,55 @@ export function createDigitoneEngine(initial?: Record<string, any>): ModuleEngin
     },
 
     onEvent(msg: EventMessage) {
-      if (msg.type === "noteOn") {
-        const slot = pickVoice(msg.note);
-        slot.note = msg.note;
-        slot.startedAt = performance.now();
+      if (msg.type === "noteOn") noteOn(msg.note, msg.velocity);
+      if (msg.type === "noteOff") noteOff(msg.note);
 
-        const baseHz = midiToHz(msg.note);
-        slot.voice.applyAlgo(state.algo);
-        slot.voice.setRatios(baseHz, state.r1, state.r2, state.r3, state.r4);
-        slot.voice.setIndexes(state.i2, state.i3, state.i4, state.i23, state.i34);
-        slot.voice.envOn(msg.velocity, state.gain, state.attack);
+      if (msg.type === "start") {
+        seqRunning = true;
+        tickCount = 0;
+        step = 0;
+        gateLeft = 0;
+        gateNote = null;
       }
 
-      if (msg.type === "noteOff") {
-        const slot = voices.find((v) => v.note === msg.note);
-        if (slot) {
-          slot.voice.envOff(state.release);
-          slot.note = null;
+      if (msg.type === "stop") {
+        seqRunning = false;
+        if (gateNote != null) noteOff(gateNote);
+        gateLeft = 0;
+        gateNote = null;
+      }
+
+      if (msg.type === "clock") {
+        if (!seqRunning || !state.seqOn) return;
+
+        // gate countdown
+        if (gateLeft > 0) {
+          gateLeft--;
+          if (gateLeft === 0 && gateNote != null) {
+            noteOff(gateNote);
+            gateNote = null;
+          }
         }
+
+        tickCount++;
+        const tps = Math.max(1, Number(state.seqTicksPerStep || 6));
+        if (tickCount % tps !== 0) return;
+
+        // step advance
+        if (patternAt(step)) {
+          const n = Number(state.seqNote || 48);
+          noteOn(n, 0.95);
+          gateNote = n;
+          gateLeft = Math.max(1, Number(state.seqGateTicks || 3));
+        }
+        step = (step + 1) % 64;
       }
     },
 
     dispose() {
       for (const v of voices) v.voice.stop();
-      try {
-        filter.disconnect();
-      } catch {}
-      try {
-        output.disconnect();
-      } catch {}
+      try { filter.disconnect(); } catch {}
+      try { output.disconnect(); } catch {}
     },
   };
 
