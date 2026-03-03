@@ -5,16 +5,18 @@ export function createOutputEngine(): ModuleEngine {
   const input = audioCtx.createGain();
   input.gain.value = 0.9;
 
-  // Route into an <audio> element so we can setSinkId (supported browsers)
+  // ✅ Always connect to default output so sound works everywhere
+  input.connect(audioCtx.destination);
+
+  // Optional: route to <audio> so Chrome can select sinkId
   const dest = audioCtx.createMediaStreamDestination();
   input.connect(dest);
 
   const audioEl = document.createElement("audio");
   audioEl.autoplay = true;
   audioEl.srcObject = dest.stream;
-
-  // TS-safe way to express "playsInline"
   audioEl.setAttribute("playsinline", "true");
+  audioEl.muted = false;
   audioEl.style.display = "none";
   document.body.appendChild(audioEl);
 
@@ -22,6 +24,8 @@ export function createOutputEngine(): ModuleEngine {
     const anyEl = audioEl as any;
     if (typeof anyEl.setSinkId === "function") {
       await anyEl.setSinkId(deviceId);
+      // try to kick playback in case browser paused it
+      try { await audioEl.play(); } catch {}
     }
   }
 
