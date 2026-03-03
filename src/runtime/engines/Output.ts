@@ -9,8 +9,6 @@ export function createOutputEngine(): ModuleEngine {
   return {
     audioIn: input,
     setParam() {},
-    dispose() {
-      input.disconnect();
-    },
+    dispose() { input.disconnect(); },
   };
 }
