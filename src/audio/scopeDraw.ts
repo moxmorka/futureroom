@@ -6,20 +6,16 @@ export function drawScope(canvas: HTMLCanvasElement, data: Float32Array) {
   const h = canvas.height;
 
   ctx.clearRect(0, 0, w, h);
-
-  // background
   ctx.fillStyle = "#0b0b0c";
   ctx.fillRect(0, 0, w, h);
 
-  // center line
   ctx.strokeStyle = "rgba(255,255,255,0.08)";
   ctx.beginPath();
   ctx.moveTo(0, h / 2);
   ctx.lineTo(w, h / 2);
   ctx.stroke();
 
-  // waveform
-  ctx.strokeStyle = "rgba(229,231,235,0.9)";
+  ctx.strokeStyle = "rgba(229,231,235,0.92)";
   ctx.lineWidth = 2;
   ctx.beginPath();
 
