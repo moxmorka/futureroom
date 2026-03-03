@@ -35,6 +35,10 @@ import {
   type PatchV1,
 } from "./runtime/patch";
 
+function clamp(n: number, a: number, b: number) {
+  return Math.max(a, Math.min(b, n));
+}
+
 function InnerApp() {
   const nodes = useStore((s) => s.nodes) as Node<ModuleNodeData>[];
   const edges = useStore((s) => s.edges) as Edge<EdgeData>[];
@@ -50,15 +54,42 @@ function InnerApp() {
   const importInputRef = useRef<HTMLInputElement | null>(null);
   const [panelOpen, setPanelOpen] = useState(true);
 
+  // global tuning UI state (applied into synth node params)
+  const [globalTranspose, setGlobalTranspose] = useState(0); // semitones
+  const [globalTuneCents, setGlobalTuneCents] = useState(0); // cents
+
   // Sync graph -> runtime
   useEffect(() => {
     runtime.sync(nodes, edges);
   }, [nodes, edges, runtime]);
 
+  // Apply global tuning to relevant nodes whenever it changes
+  useEffect(() => {
+    setNodes(
+      nodes.map((n) => {
+        const mt = n.data?.moduleType;
+        if (mt !== "digitone" && mt !== "monomachine") return n;
+
+        return {
+          ...n,
+          data: {
+            ...n.data,
+            params: {
+              ...(n.data.params || {}),
+              globalTranspose,
+              globalTuneCents,
+            },
+          },
+        };
+      })
+    );
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [globalTranspose, globalTuneCents]);
+
   const nodeTypes = useMemo(
     () => ({
       clockNode: (props: any) => <ClockNode {...props} runtime={runtime} />,
-      outNode: OutputNode,
+      outNode: (props: any) => <OutputNode {...props} runtime={runtime} />,
       scopeNode: (props: any) => <ScopeNode {...props} runtime={runtime} />,
       digitoneNode: (props: any) => <DigitoneNode {...props} runtime={runtime} />,
       digitaktNode: (props: any) => <DigitaktNode {...props} runtime={runtime} />,
@@ -128,20 +159,85 @@ function InnerApp() {
           <span className="badge">patchable</span>
         </div>
 
+        {/* Global tuning */}
+        <div
+          className="nodrag"
+          style={{ display: "flex", gap: 10, alignItems: "center" }}
+          onPointerDown={(e) => e.stopPropagation()}
+        >
+          <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+            <span className="hint">Transpose</span>
+            <input
+              className="nodrag"
+              type="number"
+              value={globalTranspose}
+              min={-24}
+              max={24}
+              onPointerDown={(e) => e.stopPropagation()}
+              onChange={(e) => setGlobalTranspose(clamp(Number(e.target.value), -24, 24))}
+              style={{
+                width: 64,
+                height: 30,
+                borderRadius: 10,
+                border: "1px solid var(--line)",
+                background: "rgba(255,255,255,0.04)",
+                color: "var(--text)",
+                padding: "0 10px",
+              }}
+            />
+          </div>
+
+          <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+            <span className="hint">Tune</span>
+            <input
+              className="nodrag"
+              type="number"
+              value={globalTuneCents}
+              min={-50}
+              max={50}
+              onPointerDown={(e) => e.stopPropagation()}
+              onChange={(e) => setGlobalTuneCents(clamp(Number(e.target.value), -50, 50))}
+              style={{
+                width: 64,
+                height: 30,
+                borderRadius: 10,
+                border: "1px solid var(--line)",
+                background: "rgba(255,255,255,0.04)",
+                color: "var(--text)",
+                padding: "0 10px",
+              }}
+            />
+            <span className="hint">cents</span>
+          </div>
+        </div>
+
         <div style={{ display: "flex", gap: 8 }}>
-          <button className="smallBtn" onClick={() => setPanelOpen((v) => !v)}>
+          <button
+            className="smallBtn nodrag"
+            onPointerDown={(e) => e.stopPropagation()}
+            onClick={() => setPanelOpen((v) => !v)}
+          >
             {panelOpen ? "Hide" : "Show"}
           </button>
 
-          <button className="smallBtn" onClick={handleSave}>
+          <button
+            className="smallBtn nodrag"
+            onPointerDown={(e) => e.stopPropagation()}
+            onClick={() => void ensureAudioRunning()}
+            title="Browsers require a user gesture to start audio"
+          >
+            Unlock Audio
+          </button>
+
+          <button className="smallBtn nodrag" onPointerDown={(e) => e.stopPropagation()} onClick={handleSave}>
             Save
           </button>
 
-          <button className="smallBtn" onClick={handleLoad}>
+          <button className="smallBtn nodrag" onPointerDown={(e) => e.stopPropagation()} onClick={handleLoad}>
             Load
           </button>
 
-          <button className="smallBtn" onClick={handleExport}>
+          <button className="smallBtn nodrag" onPointerDown={(e) => e.stopPropagation()} onClick={handleExport}>
             Export
           </button>
 
@@ -158,13 +254,14 @@ function InnerApp() {
           />
 
           <button
-            className="smallBtn"
+            className="smallBtn nodrag"
+            onPointerDown={(e) => e.stopPropagation()}
             onClick={() => importInputRef.current?.click()}
           >
             Import
           </button>
 
-          <button className="smallBtn" onClick={reset}>
+          <button className="smallBtn nodrag" onPointerDown={(e) => e.stopPropagation()} onClick={reset}>
             Reset
           </button>
         </div>
@@ -172,7 +269,7 @@ function InnerApp() {
 
       <div className="canvas" style={{ position: "relative" }}>
         {panelOpen && (
-          <div className="panel">
+          <div className="panel nodrag" onPointerDown={(e) => e.stopPropagation()}>
             <div className="panelTitle">Add Module</div>
             <div className="panelButtons">
               <button className="smallBtn" onClick={() => handleAdd("clockNode")}>
@@ -194,6 +291,9 @@ function InnerApp() {
                 Output
               </button>
             </div>
+            <div className="hint" style={{ marginTop: 6 }}>
+              Tip: Right-click a node to delete it.
+            </div>
           </div>
         )}
 
@@ -201,20 +301,14 @@ function InnerApp() {
           nodes={nodes}
           edges={edges.map((e) => ({
             ...e,
-            className:
-              e.data?.kind === "event" ? "edge-event" : "edge-audio",
+            className: e.data?.kind === "event" ? "edge-event" : "edge-audio",
           }))}
           nodeTypes={nodeTypes}
           onConnect={onConnect}
-          onNodesChange={(ch) =>
-            setNodes(applyNodeChanges(ch, nodes))
-          }
-          onEdgesChange={(ch) =>
-            setEdges(applyEdgeChanges(ch, edges))
-          }
+          onNodesChange={(ch) => setNodes(applyNodeChanges(ch, nodes))}
+          onEdgesChange={(ch) => setEdges(applyEdgeChanges(ch, edges))}
           onNodeContextMenu={(e, node) => {
             e.preventDefault();
-            // delete node + any connected edges
             setNodes(nodes.filter((n) => n.id !== node.id));
             setEdges(edges.filter((ed) => ed.source !== node.id && ed.target !== node.id));
           }}
