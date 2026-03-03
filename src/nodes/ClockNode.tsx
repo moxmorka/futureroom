@@ -16,15 +16,24 @@ export function ClockNode({ id, data, runtime }: any) {
       <div className="nodeHeader">
         <div>
           <div className="nodeTitle">Clock</div>
-          <div className="nodeSub">24ppqn ticks</div>
+          <div className="nodeSub">24ppqn</div>
         </div>
         <div className="badge">EVENT</div>
       </div>
 
       <div className="nodeBody">
         <div className="row">
-          <div className="labelRow"><span>BPM</span><span className="value">{formatNum(p.bpm, 0)}</span></div>
-          <Slider value={p.bpm ?? 120} min={40} max={200} step={1} onChange={(v) => update(id, "bpm", v)} />
+          <div className="labelRow">
+            <span>BPM</span>
+            <span className="value">{formatNum(p.bpm ?? 120, 0)}</span>
+          </div>
+          <Slider
+            value={Number(p.bpm ?? 120)}
+            min={40}
+            max={200}
+            step={1}
+            onChange={(v) => update(id, "bpm", v)}
+          />
         </div>
 
         <Button
@@ -38,7 +47,13 @@ export function ClockNode({ id, data, runtime }: any) {
           {running ? "Stop" : "Start"}
         </Button>
 
-        <Handle className="handle-event" type="source" position={Position.Right} id="eventOut" style={{ top: 28 }} />
+        <Handle
+          className="handle-event"
+          type="source"
+          position={Position.Right}
+          id="eventOut"
+          style={{ top: 28 }}
+        />
       </div>
     </div>
   );
