@@ -28,6 +28,7 @@ import { MonomachineNode } from "./nodes/MonomachineNode";
 import { SamplerNode } from "./nodes/SamplerNode";
 import { PixelSeqNode } from "./nodes/PixelSeqNode";
 import { MixerNode } from "./nodes/MixerNode";
+import { Mixer8Node } from "./nodes/Mixer8Node";
 
 import {
   toPatch,
@@ -53,7 +54,6 @@ function InnerApp() {
   const importInputRef = useRef<HTMLInputElement | null>(null);
   const [panelOpen, setPanelOpen] = useState(true);
 
-  // Sync graph -> runtime
   useEffect(() => {
     runtime.sync(nodes, edges);
   }, [nodes, edges, runtime]);
@@ -69,6 +69,7 @@ function InnerApp() {
       samplerNode: (props: any) => <SamplerNode {...props} runtime={runtime} />,
       pixelSeqNode: (props: any) => <PixelSeqNode {...props} runtime={runtime} />,
       mixerNode: (props: any) => <MixerNode {...props} runtime={runtime} />,
+      mixer8Node: (props: any) => <Mixer8Node {...props} runtime={runtime} />,
     }),
     [runtime]
   );
@@ -98,7 +99,7 @@ function InnerApp() {
 
   function handleAdd(uiType: ModuleUIType) {
     const pos = getViewportCenterFlowPos();
-    addModule(uiType, { x: pos.x - 140, y: pos.y - 70 });
+    addModule(uiType, { x: pos.x - 160, y: pos.y - 80 });
   }
 
   function handleSave() {
@@ -114,10 +115,7 @@ function InnerApp() {
 
   function handleExport() {
     const patch = toPatch(nodes, edges);
-    downloadJSON(
-      `robot-patch-${new Date().toISOString().slice(0, 19).replace(/[:T]/g, "-")}.json`,
-      patch
-    );
+    downloadJSON(`robot-patch-${new Date().toISOString().slice(0, 19).replace(/[:T]/g, "-")}.json`, patch);
   }
 
   async function handleImportFile(file: File) {
@@ -131,7 +129,7 @@ function InnerApp() {
       <div className="topbar">
         <div className="brand">
           <span>ROBOT INTERFACE</span>
-          <span className="badge">sampler • pixel • mixer</span>
+          <span className="badge">Mixer8 • Sends</span>
         </div>
 
         <div style={{ display: "flex", gap: 8 }}>
@@ -139,23 +137,16 @@ function InnerApp() {
             {panelOpen ? "Hide" : "Show"}
           </button>
 
-          <button
-            className="smallBtn nodrag"
-            onPointerDown={(e) => e.stopPropagation()}
-            onClick={() => void ensureAudioRunning()}
-            title="Browsers require a user gesture to start audio"
-          >
+          <button className="smallBtn nodrag" onPointerDown={(e) => e.stopPropagation()} onClick={() => void ensureAudioRunning()}>
             Unlock Audio
           </button>
 
           <button className="smallBtn nodrag" onPointerDown={(e) => e.stopPropagation()} onClick={handleSave}>
             Save
           </button>
-
           <button className="smallBtn nodrag" onPointerDown={(e) => e.stopPropagation()} onClick={handleLoad}>
             Load
           </button>
-
           <button className="smallBtn nodrag" onPointerDown={(e) => e.stopPropagation()} onClick={handleExport}>
             Export
           </button>
@@ -192,7 +183,7 @@ function InnerApp() {
               <button className="smallBtn" onClick={() => handleAdd("monomachineNode")}>Monomachine</button>
               <button className="smallBtn" onClick={() => handleAdd("samplerNode")}>Sampler</button>
               <button className="smallBtn" onClick={() => handleAdd("pixelSeqNode")}>PixelSeq</button>
-              <button className="smallBtn" onClick={() => handleAdd("mixerNode")}>Mixer</button>
+              <button className="smallBtn" onClick={() => handleAdd("mixer8Node")}>Mixer 8</button>
               <button className="smallBtn" onClick={() => handleAdd("scopeNode")}>Scope</button>
               <button className="smallBtn" onClick={() => handleAdd("outNode")}>Output</button>
             </div>
@@ -204,10 +195,7 @@ function InnerApp() {
 
         <ReactFlow
           nodes={nodes}
-          edges={edges.map((e) => ({
-            ...e,
-            className: e.data?.kind === "event" ? "edge-event" : "edge-audio",
-          }))}
+          edges={edges.map((e) => ({ ...e, className: e.data?.kind === "event" ? "edge-event" : "edge-audio" }))}
           nodeTypes={nodeTypes}
           onConnect={onConnect}
           onNodesChange={(ch) => setNodes(applyNodeChanges(ch, nodes))}
