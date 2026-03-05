@@ -1,5 +1,6 @@
 import { audioCtx } from "../../audio/audioContext"
 import type { ModuleEngine } from "./base"
+import type { EventMessage } from "../types"
 
 export function createSamplerEngine(params?:Record<string,any>):ModuleEngine{
 
@@ -13,6 +14,7 @@ export function createSamplerEngine(params?:Record<string,any>):ModuleEngine{
     const array = await file.arrayBuffer()
 
     buffer = await audioCtx.decodeAudioData(array)
+
   }
 
   function trigger(){
@@ -26,13 +28,14 @@ export function createSamplerEngine(params?:Record<string,any>):ModuleEngine{
     src.connect(output)
 
     src.start()
+
   }
 
   const engine:ModuleEngine = {
 
     audioOut: output,
 
-    onEvent(msg){
+    onEvent(msg:EventMessage){
 
       if(msg.type === "trigger"){
 
@@ -45,7 +48,9 @@ export function createSamplerEngine(params?:Record<string,any>):ModuleEngine{
     setParam(key:string,value:any){
 
       if(key === "gain"){
+
         output.gain.value = Number(value)
+
       }
 
     },
