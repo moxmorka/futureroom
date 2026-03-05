@@ -9,6 +9,8 @@ export type EdgeData = { kind: "audio" | "event" };
 export class GraphRuntime {
   private engines = new Map<string, ModuleEngine>();
   private lastEdgesKey = "";
+
+  // master fallback output (so you always hear something even if Output node wiring is weird)
   private master = audioCtx.createGain();
 
   constructor() {
@@ -23,7 +25,9 @@ export class GraphRuntime {
   sync(nodes: Node<ModuleNodeData>[], edges: Edge<EdgeData>[]) {
     // create/update engines
     for (const n of nodes) {
-      if (!this.engines.has(n.id)) this.engines.set(n.id, createEngine(n.data.moduleType, n.data.params));
+      if (!this.engines.has(n.id)) {
+        this.engines.set(n.id, createEngine(n.data.moduleType, n.data.params));
+      }
       const eng = this.engines.get(n.id)!;
       for (const [k, v] of Object.entries(n.data.params || {})) eng.setParam(k, v);
     }
@@ -36,7 +40,7 @@ export class GraphRuntime {
       }
     }
 
-    const edgesKey = JSON.stringify(edges.map((e) => [e.id, e.source, e.target, e.data?.kind]));
+    const edgesKey = JSON.stringify(edges.map((e) => [e.id, e.source, e.target, e.sourceHandle, e.targetHandle, e.data?.kind]));
     if (edgesKey !== this.lastEdgesKey) {
       this.lastEdgesKey = edgesKey;
       this.rebuildConnections(edges);
@@ -44,40 +48,57 @@ export class GraphRuntime {
   }
 
   private rebuildConnections(edges: Edge<EdgeData>[]) {
-    // disconnect all existing audioOut routes (best-effort)
+    // disconnect all audioOut routes (best-effort)
     for (const eng of this.engines.values()) {
-      try { eng.audioOut?.disconnect(); } catch {}
+      try {
+        eng.audioOut?.disconnect();
+      } catch {}
     }
 
-    // set event broadcasters
+    // wire event broadcasters
     for (const [id, eng] of this.engines.entries()) {
       const setBroadcaster = (eng as any).setBroadcaster as undefined | ((fn: (msg: EventMessage) => void) => void);
-      if (setBroadcaster) setBroadcaster((msg: EventMessage) => this.broadcastFrom(id, msg, edges));
-    }
-
-    // connect audio edges
-    for (const e of edges) {
-      const src = this.engines.get(e.source);
-      const dst = this.engines.get(e.target);
-      if (!src || !dst) continue;
-
-      if ((e.data?.kind ?? "audio") === "audio") {
-        if (src.audioOut && dst.audioIn) {
-          try { src.audioOut.connect(dst.audioIn); } catch {}
-        }
+      if (setBroadcaster) {
+        setBroadcaster((msg: EventMessage) => this.broadcastFrom(id, msg, edges));
       }
     }
 
-    // ✅ fallback: if a module has audioOut but no outgoing audio edges, route to master
+    // connect audio edges (HANDLE-AWARE)
+    for (const e of edges) {
+      const kind = (e.data?.kind ?? "audio") as EdgeData["kind"];
+      if (kind !== "audio") continue;
+
+      const src = this.engines.get(e.source);
+      const dst = this.engines.get(e.target);
+      if (!src || !dst) continue;
+      if (!src.audioOut) continue;
+
+      // If targetHandle is audioIn1/audioIn2/... route there; else fallback to dst.audioIn
+      const th = (e.targetHandle || "audioIn") as string;
+      const dstIn =
+        (dst as any)[th] ||
+        (th === "audioIn" ? (dst as any).audioIn : null) ||
+        (dst as any).audioIn;
+
+      if (dstIn) {
+        try {
+          src.audioOut.connect(dstIn);
+        } catch {}
+      }
+    }
+
+    // fallback: any engine with audioOut but no outgoing audio edges -> route to master
     for (const [id, eng] of this.engines.entries()) {
       if (!eng.audioOut) continue;
 
-      const hasAudioOutEdge = edges.some(
+      const hasOutgoingAudio = edges.some(
         (e) => e.source === id && (e.data?.kind ?? "audio") === "audio"
       );
 
-      if (!hasAudioOutEdge) {
-        try { eng.audioOut.connect(this.master); } catch {}
+      if (!hasOutgoingAudio) {
+        try {
+          eng.audioOut.connect(this.master);
+        } catch {}
       }
     }
   }
