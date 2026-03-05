@@ -19,7 +19,6 @@ function makeImpulse(seconds: number, decay: number) {
     const data = buffer.getChannelData(ch);
     for (let i = 0; i < len; i++) {
       const t = i / len;
-      // exponential-ish decay
       data[i] = (Math.random() * 2 - 1) * Math.pow(1 - t, decay);
     }
   }
@@ -47,7 +46,7 @@ export function createMixer8Engine(initial?: Record<string, any>): ModuleEngine 
   delayFilter.type = "lowpass";
   delayFilter.frequency.value = 6000;
 
-  delayNode.delayTime.value = 0.25; // default 1/16-ish at 120
+  delayNode.delayTime.value = 0.25;
   delayFb.gain.value = 0.35;
   delayReturn.gain.value = 0.25;
 
@@ -59,7 +58,7 @@ export function createMixer8Engine(initial?: Record<string, any>): ModuleEngine 
   delayFilter.connect(delayReturn);
   delayReturn.connect(masterSum);
 
-  // Reverb FX (Send B) - Convolver with generated impulse
+  // Reverb FX (Send B)
   const convIn = audioCtx.createGain();
   const convolver = audioCtx.createConvolver();
   const revPre = audioCtx.createBiquadFilter();
@@ -97,12 +96,10 @@ export function createMixer8Engine(initial?: Record<string, any>): ModuleEngine 
     const sa = audioCtx.createGain();
     const sb = audioCtx.createGain();
 
-    // main path
     i.connect(g);
     g.connect(p);
     p.connect(masterSum);
 
-    // sends tap pre-pan (keeps send stable; change to post-pan if you want)
     i.connect(sa);
     i.connect(sb);
     sa.connect(busA);
@@ -114,21 +111,19 @@ export function createMixer8Engine(initial?: Record<string, any>): ModuleEngine 
     return { in: i, gain: g, pan: p, sendA: sa, sendB: sb };
   });
 
-  const state: any = {
+  const state: Record<string, any> = {
     master: 0.9,
     drive: 0.12,
 
-    // Delay params
-    delayTime: 0.25,   // seconds
-    delayFb: 0.35,     // 0..0.95
-    delayTone: 6000,   // Hz
-    delayReturn: 0.25, // 0..1
+    delayTime: 0.25,
+    delayFb: 0.35,
+    delayTone: 6000,
+    delayReturn: 0.25,
 
-    // Reverb params
     reverbReturn: 0.22,
-    reverbHP: 250,     // Hz
-    reverbSize: 1.6,   // seconds
-    reverbDecay: 2.5,  // curve exponent
+    reverbHP: 250,
+    reverbSize: 1.6,
+    reverbDecay: 2.5,
 
     ...initial,
   };
@@ -147,7 +142,6 @@ export function createMixer8Engine(initial?: Record<string, any>): ModuleEngine 
     masterOut.gain.value = clamp(Number(state.master ?? 0.9), 0, 1.5);
     setDrive(Number(state.drive ?? 0.12));
 
-    // FX
     delayNode.delayTime.value = clamp(Number(state.delayTime ?? 0.25), 0, 2.0);
     delayFb.gain.value = clamp(Number(state.delayFb ?? 0.35), 0, 0.95);
     delayFilter.frequency.value = clamp(Number(state.delayTone ?? 6000), 500, 16000);
@@ -155,11 +149,6 @@ export function createMixer8Engine(initial?: Record<string, any>): ModuleEngine 
 
     revReturn.gain.value = clamp(Number(state.reverbReturn ?? 0.22), 0, 1);
     revPre.frequency.value = clamp(Number(state.reverbHP ?? 250), 20, 1500);
-
-    // if user changed impulse parameters, rebuild buffer (cheap enough for occasional tweaks)
-    const size = clamp(Number(state.reverbSize ?? 1.6), 0.2, 6.0);
-    const dec = clamp(Number(state.reverbDecay ?? 2.5), 0.5, 6.0);
-    // rebuild only when needed via setParam guard below, but safe to keep here if you want
 
     const solos = Array.from({ length: 8 }, (_, i) => i + 1).filter((i) => Boolean(state[`ch${i}_solo`]));
     const soloMode = solos.length > 0;
@@ -180,7 +169,6 @@ export function createMixer8Engine(initial?: Record<string, any>): ModuleEngine 
       ch.sendB.gain.value = mute || !allowed ? 0 : clamp(Number(state[`ch${i}_sendB`] ?? 0), 0, 1);
     }
 
-    // Rebuild impulse if requested (handled in setParam for performance)
     convolver.normalize = true;
   }
 
@@ -189,7 +177,6 @@ export function createMixer8Engine(initial?: Record<string, any>): ModuleEngine 
   const engine: ModuleEngine = {
     audioOut: masterOut,
 
-    // expose 8 audio inputs by handle name
     get audioIn1() { return channels[0].in; },
     get audioIn2() { return channels[1].in; },
     get audioIn3() { return channels[2].in; },
@@ -199,10 +186,9 @@ export function createMixer8Engine(initial?: Record<string, any>): ModuleEngine 
     get audioIn7() { return channels[6].in; },
     get audioIn8() { return channels[7].in; },
 
-    setParam(key, value) {
+    setParam(key: string, value: any) {
       state[key] = value;
 
-      // rebuild convolver impulse only when size/decay changes
       if (key === "reverbSize" || key === "reverbDecay") {
         const size = clamp(Number(state.reverbSize ?? 1.6), 0.2, 6.0);
         const dec = clamp(Number(state.reverbDecay ?? 2.5), 0.5, 6.0);
@@ -221,11 +207,23 @@ export function createMixer8Engine(initial?: Record<string, any>): ModuleEngine 
       try { busA.disconnect(); } catch {}
       try { busB.disconnect(); } catch {}
 
-      try { delayIn.disconnect(); delayNode.disconnect(); delayFb.disconnect(); delayFilter.disconnect(); delayReturn.disconnect(); } catch {}
-      try { convIn.disconnect(); revPre.disconnect(); convolver.disconnect(); revReturn.disconnect(); } catch {}
+      try { delayIn.disconnect(); } catch {}
+      try { delayNode.disconnect(); } catch {}
+      try { delayFb.disconnect(); } catch {}
+      try { delayFilter.disconnect(); } catch {}
+      try { delayReturn.disconnect(); } catch {}
+
+      try { convIn.disconnect(); } catch {}
+      try { revPre.disconnect(); } catch {}
+      try { convolver.disconnect(); } catch {}
+      try { revReturn.disconnect(); } catch {}
 
       channels.forEach((c) => {
-        try { c.in.disconnect(); c.gain.disconnect(); c.pan.disconnect(); c.sendA.disconnect(); c.sendB.disconnect(); } catch {}
+        try { c.in.disconnect(); } catch {}
+        try { c.gain.disconnect(); } catch {}
+        try { c.pan.disconnect(); } catch {}
+        try { c.sendA.disconnect(); } catch {}
+        try { c.sendB.disconnect(); } catch {}
       });
     },
   } as any;
