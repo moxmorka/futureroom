@@ -1,47 +1,55 @@
-import React, { useRef, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 
 type Props = {
-  value: number
-  min: number
-  max: number
-  step?: number
-  onChange: (v:number)=>void
-}
+  value: number;
+  min: number;
+  max: number;
+  step?: number;
+  onChange: (v: number) => void;
+};
 
 export function Slider({ value, min, max, step = 0.01, onChange }: Props) {
+  const [internal, setInternal] = useState(value);
+  const raf = useRef<number | null>(null);
+  const latest = useRef(value);
 
-  const [internal, setInternal] = useState(value)
-  const raf = useRef<number | null>(null)
+  useEffect(() => {
+    setInternal(value);
+    latest.current = value;
+  }, [value]);
 
-  function commit(v:number){
-    if(raf.current) cancelAnimationFrame(raf.current)
+  function commit(v: number) {
+    latest.current = v;
 
-    raf.current = requestAnimationFrame(()=>{
-      onChange(v)
-    })
+    if (raf.current != null) cancelAnimationFrame(raf.current);
+
+    raf.current = requestAnimationFrame(() => {
+      onChange(latest.current);
+    });
   }
 
-  function handle(e:React.ChangeEvent<HTMLInputElement>){
-
-    const v = parseFloat(e.target.value)
-
-    setInternal(v)
-    commit(v)
+  function handle(e: React.ChangeEvent<HTMLInputElement>) {
+    const v = parseFloat(e.target.value);
+    setInternal(v);
+    commit(v);
   }
 
   return (
     <input
+      className="nodrag"
       type="range"
       min={min}
       max={max}
       step={step}
       value={internal}
       onChange={handle}
-      onPointerDown={(e)=>e.stopPropagation()}
+      onPointerDown={(e) => e.stopPropagation()}
+      onTouchStart={(e) => e.stopPropagation()}
       style={{
-        width:"100%",
-        cursor:"pointer"
+        width: "100%",
+        cursor: "pointer",
+        touchAction: "none",
       }}
     />
-  )
+  );
 }
