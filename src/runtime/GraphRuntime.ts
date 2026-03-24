@@ -6,17 +6,29 @@ import { audioCtx } from "../audio/audioContext";
 
 export type EdgeData = { kind: "audio" | "event" };
 
-function edgeSignature(edges: Edge<EdgeData>[]) {
-  return edges
-    .map((e) => `${e.id}|${e.source}|${e.target}|${e.sourceHandle || ""}|${e.targetHandle || ""}|${e.data?.kind || "audio"}`)
-    .sort()
-    .join("~");
+function makeNodeKey(nodes: Node<ModuleNodeData>[]) {
+  return JSON.stringify(
+    nodes.map((n) => [n.id, n.data.moduleType, n.data.params ?? {}])
+  );
+}
+
+function makeEdgeKey(edges: Edge<EdgeData>[]) {
+  return JSON.stringify(
+    edges.map((e) => [
+      e.id,
+      e.source,
+      e.target,
+      e.sourceHandle,
+      e.targetHandle,
+      e.data?.kind ?? "audio",
+    ])
+  );
 }
 
 export class GraphRuntime {
   private engines = new Map<string, ModuleEngine>();
+  private lastNodeKey = "";
   private lastEdgesKey = "";
-  private currentEdges: Edge<EdgeData>[] = [];
 
   private master = audioCtx.createGain();
 
@@ -30,28 +42,38 @@ export class GraphRuntime {
   }
 
   sync(nodes: Node<ModuleNodeData>[], edges: Edge<EdgeData>[]) {
-    this.currentEdges = edges;
+    const nodeKey = makeNodeKey(nodes);
+    const edgeKey = makeEdgeKey(edges);
 
-    const nodeIds = new Set(nodes.map((n) => n.id));
+    const nodesChanged = nodeKey !== this.lastNodeKey;
+    const edgesChanged = edgeKey !== this.lastEdgesKey;
 
-    for (const n of nodes) {
-      if (!this.engines.has(n.id)) {
-        this.engines.set(n.id, createEngine(n.data.moduleType, n.data.params));
+    if (!nodesChanged && !edgesChanged) return;
+
+    if (nodesChanged) {
+      this.lastNodeKey = nodeKey;
+
+      for (const n of nodes) {
+        if (!this.engines.has(n.id)) {
+          this.engines.set(n.id, createEngine(n.data.moduleType, n.data.params));
+        }
+
+        const eng = this.engines.get(n.id)!;
+        for (const [k, v] of Object.entries(n.data.params || {})) {
+          eng.setParam(k, v);
+        }
       }
-      const eng = this.engines.get(n.id)!;
-      for (const [k, v] of Object.entries(n.data.params || {})) eng.setParam(k, v);
+
+      for (const [id, eng] of [...this.engines.entries()]) {
+        if (!nodes.find((n) => n.id === id)) {
+          eng.dispose?.();
+          this.engines.delete(id);
+        }
+      }
     }
 
-    for (const [id, eng] of [...this.engines.entries()]) {
-      if (!nodeIds.has(id)) {
-        eng.dispose?.();
-        this.engines.delete(id);
-      }
-    }
-
-    const nextKey = edgeSignature(edges);
-    if (nextKey !== this.lastEdgesKey) {
-      this.lastEdgesKey = nextKey;
+    if (nodesChanged || edgesChanged) {
+      this.lastEdgesKey = edgeKey;
       this.rebuildConnections(edges);
     }
   }
@@ -63,10 +85,18 @@ export class GraphRuntime {
       } catch {}
     }
 
+    try {
+      this.master.disconnect();
+    } catch {}
+    this.master.connect(audioCtx.destination);
+
     for (const [id, eng] of this.engines.entries()) {
-      const setBroadcaster = (eng as any).setBroadcaster as undefined | ((fn: (msg: EventMessage) => void) => void);
+      const setBroadcaster = (eng as any).setBroadcaster as
+        | undefined
+        | ((fn: (msg: EventMessage) => void) => void);
+
       if (setBroadcaster) {
-        setBroadcaster((msg: EventMessage) => this.broadcastFrom(id, msg));
+        setBroadcaster((msg: EventMessage) => this.broadcastFrom(id, msg, edges));
       }
     }
 
@@ -93,7 +123,11 @@ export class GraphRuntime {
 
     for (const [id, eng] of this.engines.entries()) {
       if (!eng.audioOut) continue;
-      const hasOutgoingAudio = edges.some((e) => e.source === id && (e.data?.kind ?? "audio") === "audio");
+
+      const hasOutgoingAudio = edges.some(
+        (e) => e.source === id && (e.data?.kind ?? "audio") === "audio"
+      );
+
       if (!hasOutgoingAudio) {
         try {
           eng.audioOut.connect(this.master);
@@ -102,8 +136,8 @@ export class GraphRuntime {
     }
   }
 
-  private broadcastFrom(sourceId: string, msg: EventMessage) {
-    for (const e of this.currentEdges) {
+  private broadcastFrom(sourceId: string, msg: EventMessage, edges: Edge<EdgeData>[]) {
+    for (const e of edges) {
       if (e.source !== sourceId) continue;
       if ((e.data?.kind ?? "audio") !== "event") continue;
       this.engines.get(e.target)?.onEvent?.(msg);
