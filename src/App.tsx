@@ -27,7 +27,6 @@ import { DigitaktNode } from "./nodes/DigitaktNode";
 import { MonomachineNode } from "./nodes/MonomachineNode";
 import { SamplerNode } from "./nodes/SamplerNode";
 import { PixelSeqNode } from "./nodes/PixelSeqNode";
-import { EuclideanSeqNode } from "./nodes/EuclideanSeqNode";
 import { MixerNode } from "./nodes/MixerNode";
 import { Mixer8Node } from "./nodes/Mixer8Node";
 
@@ -83,7 +82,6 @@ function InnerApp() {
       monomachineNode: (props: any) => <MonomachineNode {...props} runtime={runtime} />,
       samplerNode: (props: any) => <SamplerNode {...props} runtime={runtime} />,
       pixelSeqNode: (props: any) => <PixelSeqNode {...props} runtime={runtime} />,
-      euclideanSeqNode: (props: any) => <EuclideanSeqNode {...props} runtime={runtime} />,
       mixerNode: (props: any) => <MixerNode {...props} runtime={runtime} />,
       mixer8Node: (props: any) => <Mixer8Node {...props} runtime={runtime} />,
     }),
@@ -91,14 +89,21 @@ function InnerApp() {
   );
 
   const decoratedEdges = useMemo(
-    () => edges.map((e) => ({ ...e, className: e.data?.kind === "event" ? "edge-event" : "edge-audio" })),
+    () =>
+      edges.map((e) => ({
+        ...e,
+        className: e.data?.kind === "event" ? "edge-event" : "edge-audio",
+      })),
     [edges]
   );
 
-  const stopCanvasPropagation = useCallback((e: React.PointerEvent | React.MouseEvent) => {
-    e.stopPropagation();
-    void ensureAudioRunning();
-  }, []);
+  const stopCanvasPropagation = useCallback(
+    (e: React.PointerEvent | React.MouseEvent) => {
+      e.stopPropagation();
+      void ensureAudioRunning();
+    },
+    []
+  );
 
   const getViewportCenterFlowPos = useCallback(() => {
     const x = window.innerWidth / 2;
@@ -106,11 +111,14 @@ function InnerApp() {
     return screenToFlowPosition({ x, y });
   }, [screenToFlowPosition]);
 
-  const handleAdd = useCallback((uiType: ModuleUIType) => {
-    const pos = getViewportCenterFlowPos();
-    addModule(uiType, { x: pos.x - 160, y: pos.y - 80 });
-    void ensureAudioRunning();
-  }, [addModule, getViewportCenterFlowPos]);
+  const handleAdd = useCallback(
+    (uiType: ModuleUIType) => {
+      const pos = getViewportCenterFlowPos();
+      addModule(uiType, { x: pos.x - 160, y: pos.y - 80 });
+      void ensureAudioRunning();
+    },
+    [addModule, getViewportCenterFlowPos]
+  );
 
   const handleSave = useCallback(() => {
     savePatchToLocalStorage(toPatch(nodesRef.current, edgesRef.current));
@@ -124,61 +132,107 @@ function InnerApp() {
   }, [setPatch]);
 
   const handleExport = useCallback(() => {
-    const fileName = `futureroom-patch-${new Date().toISOString().slice(0, 19).replace(/[:T]/g, "-")}.json`;
-    downloadJSON(fileName, toPatch(nodesRef.current, edgesRef.current));
+    const patch = toPatch(nodesRef.current, edgesRef.current);
+    downloadJSON(
+      `futureroom-patch-${new Date().toISOString().slice(0, 19).replace(/[:T]/g, "-")}.json`,
+      patch
+    );
   }, []);
 
-  const handleImportFile = useCallback(async (file: File) => {
-    const obj = (await readJSONFile(file)) as PatchV1;
-    if (!obj || obj.version !== 1) return;
-    setPatch(obj.nodes, obj.edges);
-    void ensureAudioRunning();
-  }, [setPatch]);
+  const handleImportFile = useCallback(
+    async (file: File) => {
+      const obj = (await readJSONFile(file)) as PatchV1;
+      if (!obj || obj.version !== 1) return;
+      setPatch(obj.nodes, obj.edges);
+      void ensureAudioRunning();
+    },
+    [setPatch]
+  );
 
-  const onConnect = useCallback(async (c: Connection) => {
-    await ensureAudioRunning();
-    const isEvent = (c.sourceHandle?.toLowerCase().includes("event") ?? false) || (c.targetHandle?.toLowerCase().includes("event") ?? false);
-    const edge: Edge<EdgeData> = {
-      ...(c as any),
-      id: `e_${crypto.randomUUID()}`,
-      data: { kind: isEvent ? "event" : "audio" },
-      className: isEvent ? "edge-event" : "edge-audio",
-    };
-    setEdges(addEdge(edge as any, edgesRef.current) as any);
-  }, [setEdges]);
+  const onConnect = useCallback(
+    async (c: Connection) => {
+      await ensureAudioRunning();
 
-  const onNodesChange = useCallback((changes: any) => {
-    setNodes(applyNodeChanges(changes, nodesRef.current));
-  }, [setNodes]);
+      const isEvent =
+        (c.sourceHandle?.toLowerCase().includes("event") ?? false) ||
+        (c.targetHandle?.toLowerCase().includes("event") ?? false);
 
-  const onEdgesChange = useCallback((changes: any) => {
-    setEdges(applyEdgeChanges(changes, edgesRef.current));
-  }, [setEdges]);
+      const edge: Edge<EdgeData> = {
+        ...(c as any),
+        id: `e_${crypto.randomUUID()}`,
+        data: { kind: isEvent ? "event" : "audio" },
+        className: isEvent ? "edge-event" : "edge-audio",
+      };
 
-  const onNodeContextMenu = useCallback((e: React.MouseEvent, node: Node<ModuleNodeData>) => {
-    e.preventDefault();
-    setNodes(nodesRef.current.filter((n) => n.id !== node.id));
-    setEdges(edgesRef.current.filter((ed) => ed.source !== node.id && ed.target !== node.id));
-  }, [setEdges, setNodes]);
+      setEdges(addEdge(edge as any, edgesRef.current) as any);
+    },
+    [setEdges]
+  );
+
+  const onNodesChange = useCallback(
+    (changes: any) => {
+      setNodes(applyNodeChanges(changes, nodesRef.current));
+    },
+    [setNodes]
+  );
+
+  const onEdgesChange = useCallback(
+    (changes: any) => {
+      setEdges(applyEdgeChanges(changes, edgesRef.current));
+    },
+    [setEdges]
+  );
+
+  const onNodeContextMenu = useCallback(
+    (e: React.MouseEvent, node: Node<ModuleNodeData>) => {
+      e.preventDefault();
+      setNodes(nodesRef.current.filter((n) => n.id !== node.id));
+      setEdges(
+        edgesRef.current.filter((ed) => ed.source !== node.id && ed.target !== node.id)
+      );
+    },
+    [setNodes, setEdges]
+  );
 
   return (
-    <div className="rf-shell" onPointerDown={() => void ensureAudioRunning()} onTouchStart={() => void ensureAudioRunning()} onMouseDown={() => void ensureAudioRunning()}>
+    <div
+      className="rf-shell"
+      onPointerDown={() => void ensureAudioRunning()}
+      onTouchStart={() => void ensureAudioRunning()}
+      onMouseDown={() => void ensureAudioRunning()}
+    >
       <div className="topbar">
         <div className="brand">
           <span>FUTUREROOM INTERFACE</span>
-          <span className="badge">Matrix Mixer • Euclidean • Sends</span>
+          <span className="badge">Matrix Mixer • Sends</span>
         </div>
 
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-          <button className="smallBtn nodrag" onPointerDown={stopCanvasPropagation} onClick={() => setPanelOpen((v) => !v)}>
+          <button
+            className="smallBtn nodrag"
+            onPointerDown={stopCanvasPropagation}
+            onClick={() => setPanelOpen((v) => !v)}
+          >
             {panelOpen ? "Hide" : "Show"}
           </button>
-          <button className="smallBtn nodrag" onPointerDown={stopCanvasPropagation} onClick={() => void ensureAudioRunning()}>
+
+          <button
+            className="smallBtn nodrag"
+            onPointerDown={stopCanvasPropagation}
+            onClick={() => void ensureAudioRunning()}
+          >
             Unlock Audio
           </button>
-          <button className="smallBtn nodrag" onPointerDown={stopCanvasPropagation} onClick={handleSave}>Save</button>
-          <button className="smallBtn nodrag" onPointerDown={stopCanvasPropagation} onClick={handleLoad}>Load</button>
-          <button className="smallBtn nodrag" onPointerDown={stopCanvasPropagation} onClick={handleExport}>Export</button>
+
+          <button className="smallBtn nodrag" onPointerDown={stopCanvasPropagation} onClick={handleSave}>
+            Save
+          </button>
+          <button className="smallBtn nodrag" onPointerDown={stopCanvasPropagation} onClick={handleLoad}>
+            Load
+          </button>
+          <button className="smallBtn nodrag" onPointerDown={stopCanvasPropagation} onClick={handleExport}>
+            Export
+          </button>
 
           <input
             ref={importInputRef}
@@ -192,8 +246,17 @@ function InnerApp() {
             }}
           />
 
-          <button className="smallBtn nodrag" onPointerDown={stopCanvasPropagation} onClick={() => importInputRef.current?.click()}>Import</button>
-          <button className="smallBtn nodrag" onPointerDown={stopCanvasPropagation} onClick={reset}>Reset</button>
+          <button
+            className="smallBtn nodrag"
+            onPointerDown={stopCanvasPropagation}
+            onClick={() => importInputRef.current?.click()}
+          >
+            Import
+          </button>
+
+          <button className="smallBtn nodrag" onPointerDown={stopCanvasPropagation} onClick={reset}>
+            Reset
+          </button>
         </div>
       </div>
 
@@ -208,13 +271,14 @@ function InnerApp() {
               <button className="smallBtn" onClick={() => handleAdd("monomachineNode")}>Mono Voice</button>
               <button className="smallBtn" onClick={() => handleAdd("samplerNode")}>Sample Deck</button>
               <button className="smallBtn" onClick={() => handleAdd("pixelSeqNode")}>Pixel Sequencer</button>
-              <button className="smallBtn" onClick={() => handleAdd("euclideanSeqNode")}>Euclidean Sequencer</button>
               <button className="smallBtn" onClick={() => handleAdd("mixerNode")}>Mixer</button>
               <button className="smallBtn" onClick={() => handleAdd("mixer8Node")}>Matrix Mixer</button>
               <button className="smallBtn" onClick={() => handleAdd("scopeNode")}>Scope</button>
               <button className="smallBtn" onClick={() => handleAdd("outNode")}>Output</button>
             </div>
-            <div className="hint" style={{ marginTop: 6 }}>Tip: Right-click a device to delete it.</div>
+            <div className="hint" style={{ marginTop: 6 }}>
+              Tip: Right-click a device to delete it.
+            </div>
           </div>
         )}
 
