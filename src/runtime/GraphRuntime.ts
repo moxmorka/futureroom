@@ -8,7 +8,12 @@ export type EdgeData = { kind: "audio" | "event" };
 
 function makeNodeKey(nodes: Node<ModuleNodeData>[]) {
   return JSON.stringify(
-    nodes.map((n) => [n.id, n.data.moduleType, n.data.params ?? {}])
+    nodes.map((n) => [
+      n.id,
+      n.type,
+      n.data?.moduleType,
+      n.data?.params ?? {},
+    ])
   );
 }
 
@@ -28,7 +33,7 @@ function makeEdgeKey(edges: Edge<EdgeData>[]) {
 export class GraphRuntime {
   private engines = new Map<string, ModuleEngine>();
   private lastNodeKey = "";
-  private lastEdgesKey = "";
+  private lastEdgeKey = "";
 
   private master = audioCtx.createGain();
 
@@ -46,7 +51,7 @@ export class GraphRuntime {
     const edgeKey = makeEdgeKey(edges);
 
     const nodesChanged = nodeKey !== this.lastNodeKey;
-    const edgesChanged = edgeKey !== this.lastEdgesKey;
+    const edgesChanged = edgeKey !== this.lastEdgeKey;
 
     if (!nodesChanged && !edgesChanged) return;
 
@@ -66,14 +71,16 @@ export class GraphRuntime {
 
       for (const [id, eng] of [...this.engines.entries()]) {
         if (!nodes.find((n) => n.id === id)) {
-          eng.dispose?.();
+          try {
+            eng.dispose?.();
+          } catch {}
           this.engines.delete(id);
         }
       }
     }
 
     if (nodesChanged || edgesChanged) {
-      this.lastEdgesKey = edgeKey;
+      this.lastEdgeKey = edgeKey;
       this.rebuildConnections(edges);
     }
   }
@@ -108,7 +115,7 @@ export class GraphRuntime {
       const dst = this.engines.get(e.target);
       if (!src?.audioOut || !dst) continue;
 
-      const th = (e.targetHandle || "audioIn") as string;
+      const th = String(e.targetHandle || "audioIn");
       const dstIn =
         (dst as any)[th] ||
         (th === "audioIn" ? (dst as any).audioIn : null) ||
