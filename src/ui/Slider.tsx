@@ -45,11 +45,7 @@ export function Slider({ value, min, max, step = 0.01, onChange }: Props) {
       onChange={handle}
       onPointerDown={(e) => e.stopPropagation()}
       onTouchStart={(e) => e.stopPropagation()}
-      style={{
-        width: "100%",
-        cursor: "pointer",
-        touchAction: "none",
-      }}
+      style={{ width: "100%", cursor: "pointer", touchAction: "none" }}
     />
   );
 }
