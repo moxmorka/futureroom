@@ -1,7 +1,7 @@
 export const audioCtx =
   new (window.AudioContext || (window as any).webkitAudioContext)();
 
-let wakeHandlersInstalled = false;
+let handlersInstalled = false;
 
 export async function ensureAudioRunning() {
   if (audioCtx.state !== "running") {
@@ -12,8 +12,8 @@ export async function ensureAudioRunning() {
 }
 
 export function installAudioWakeHandlers() {
-  if (wakeHandlersInstalled) return;
-  wakeHandlersInstalled = true;
+  if (handlersInstalled) return;
+  handlersInstalled = true;
 
   const wake = () => {
     void ensureAudioRunning();
@@ -24,4 +24,5 @@ export function installAudioWakeHandlers() {
   window.addEventListener("mousedown", wake, { passive: true });
   window.addEventListener("keydown", wake);
   window.addEventListener("focus", wake);
+  window.addEventListener("visibilitychange", wake);
 }
