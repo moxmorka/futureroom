@@ -34,6 +34,7 @@ export class GraphRuntime {
   private engines = new Map<string, ModuleEngine>();
   private lastNodeKey = "";
   private lastEdgeKey = "";
+  private lastAppliedParams = new Map<string, string>();
 
   private master = audioCtx.createGain();
 
@@ -44,6 +45,14 @@ export class GraphRuntime {
 
   getEngine(id: string) {
     return this.engines.get(id);
+  }
+
+  setParam(nodeId: string, key: string, value: any) {
+    const eng = this.engines.get(nodeId);
+    if (!eng) return;
+    try {
+      eng.setParam(key, value);
+    } catch {}
   }
 
   sync(nodes: Node<ModuleNodeData>[], edges: Edge<EdgeData>[]) {
@@ -64,8 +73,15 @@ export class GraphRuntime {
         }
 
         const eng = this.engines.get(n.id)!;
-        for (const [k, v] of Object.entries(n.data.params || {})) {
-          eng.setParam(k, v);
+        const params = n.data.params || {};
+        const paramsKey = JSON.stringify(params);
+        const prev = this.lastAppliedParams.get(n.id);
+
+        if (prev !== paramsKey) {
+          for (const [k, v] of Object.entries(params)) {
+            eng.setParam(k, v);
+          }
+          this.lastAppliedParams.set(n.id, paramsKey);
         }
       }
 
@@ -75,6 +91,7 @@ export class GraphRuntime {
             eng.dispose?.();
           } catch {}
           this.engines.delete(id);
+          this.lastAppliedParams.delete(id);
         }
       }
     }
